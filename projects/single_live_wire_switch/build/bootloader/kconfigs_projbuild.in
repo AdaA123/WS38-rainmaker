@@ -1,0 +1,3 @@
+source "/home/adaa/esp/test3/components/bootloader/Kconfig.projbuild"
+source "/home/adaa/esp/test3/components/esptool_py/Kconfig.projbuild"
+source "/home/adaa/esp/test3/components/partition_table/Kconfig.projbuild"

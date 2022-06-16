@@ -1,0 +1,186 @@
+diff --git a/components/esp_rom/esp32c3/ld/esp32c3.rom.ld b/components/esp_rom/esp32c3/ld/esp32c3.rom.ld
+index 6ca50990e5..43158af852 100644
+--- a/components/esp_rom/esp32c3/ld/esp32c3.rom.ld
++++ b/components/esp_rom/esp32c3/ld/esp32c3.rom.ld
+@@ -1544,7 +1544,7 @@ pm_set_beacon_filter = 0x4000166c;
+ pm_is_in_wifi_slice_threshold = 0x40001670;
+ pm_is_waked = 0x40001674;
+ pm_keep_alive = 0x40001678;
+-pm_on_beacon_rx = 0x4000167c;
++/* pm_on_beacon_rx = 0x4000167c; */
+ pm_on_data_rx = 0x40001680;
+ pm_on_tbtt = 0x40001684;
+ pm_parse_beacon = 0x40001688;
+@@ -1553,7 +1553,7 @@ pm_rx_beacon_process = 0x40001690;
+ pm_rx_data_process = 0x40001694;
+ pm_sleep = 0x40001698;
+ pm_sleep_for = 0x4000169c;
+-pm_tbtt_process = 0x400016a0;
++/* pm_tbtt_process = 0x400016a0; */
+ ppAMPDU2Normal = 0x400016a4;
+ ppAssembleAMPDU = 0x400016a8;
+ ppCalFrameTimes = 0x400016ac;
+diff --git a/components/esp_wifi/Kconfig b/components/esp_wifi/Kconfig
+index bc73ea8168..1f9159366b 100644
+--- a/components/esp_wifi/Kconfig
++++ b/components/esp_wifi/Kconfig
+@@ -322,6 +322,47 @@ menu "Wi-Fi"
+             Select this option to enable power_management for station when disconnected.
+             Chip will do modem-sleep when rf module is not in use any more.
+ 
++    config ESP_WIFI_SLP_BEACON_LOST_OPT
++        bool "Wifi sleep optimize when beacon lost"
++        help
++            Enable wifi sleep optimization when beacon loss occurs and immediately enter
++            sleep mode when the WiFi module detects beacon loss.
++
++    config ESP_WIFI_SLP_BEACON_LOST_TIMEOUT
++        int "Beacon loss timeout"
++        range 5 100
++        default 10
++        depends on ESP_WIFI_SLP_BEACON_LOST_OPT
++        help
++            Timeout time for close rf phy when beacon loss occurs, Unit: 1024 microsecond.
++
++    config ESP_WIFI_SLP_BEACON_LOST_THRESHOLD
++        int "Maximum number of consecutive lost beacons allowed"
++        range 0 8
++        default 3
++        depends on ESP_WIFI_SLP_BEACON_LOST_OPT
++        help
++            Maximum number of consecutive lost beacons allowed, WiFi keeps Rx state when
++            the number of consecutive beacons lost is greater than the given threshold.
++
++    config ESP_WIFI_SLP_PHY_ON_DELTA_EARLY_TIME
++        int "Delta early time for RF PHY on"
++        range 0 100
++        default 2
++        depends on ESP_WIFI_SLP_BEACON_LOST_OPT
++        help
++            Delta early time for rf phy on, When the beacon is lost, the next rf phy on will
++            be earlier the time specified by the configuration item, Unit: 32 microsecond.
++
++    config ESP_WIFI_SLP_PHY_OFF_DELTA_TIMEOUT_TIME
++        int "Delta timeout time for RF PHY off"
++        range 0 8
++        default 2
++        depends on ESP_WIFI_SLP_BEACON_LOST_OPT
++        help
++            Delta timeout time for rf phy off, When the beacon is lost, the next rf phy off will
++            be delayed for the time specified by the configuration item. Unit: 1024 microsecond.
++
+ endmenu  # Wi-Fi
+ 
+ menu "PHY"
+diff --git a/components/esp_wifi/include/esp_private/wifi.h b/components/esp_wifi/include/esp_private/wifi.h
+index 428cc7d918..197a9d7ee6 100644
+--- a/components/esp_wifi/include/esp_private/wifi.h
++++ b/components/esp_wifi/include/esp_private/wifi.h
+@@ -587,6 +587,15 @@ void esp_wifi_set_sleep_delay_time(uint32_t return_to_sleep_delay);
+  */
+ void esp_wifi_set_keep_alive_time(uint32_t keep_alive_time);
+ 
++/**
++ * @brief   Configure wifi beacon montior default parameters
++ *
++ * @param   enable: enable or disable beacon monitor
++ * @param   timeout: timeout time for close rf phy when beacon loss occurs, Unit: 1024 microsecond
++ * @param   threshold: maximum number of consecutive lost beacons allowed
++ */
++void esp_wifi_beacon_monitor_configure(bool enable, int timeout, int threshold, int delta_intr_early, int delta_timeout);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/components/esp_wifi/lib b/components/esp_wifi/lib
+index 349ac70804..82cb683439 160000
+--- a/components/esp_wifi/lib
++++ b/components/esp_wifi/lib
+@@ -1 +1 @@
+-Subproject commit 349ac708040fcd6ce3142a4413d501c2d27af24c
++Subproject commit 82cb683439148a273e6c09d93ae8b42fa1026181
+diff --git a/components/esp_wifi/src/wifi_init.c b/components/esp_wifi/src/wifi_init.c
+index 2fd667eab7..fcb2411a5f 100644
+--- a/components/esp_wifi/src/wifi_init.c
++++ b/components/esp_wifi/src/wifi_init.c
+@@ -116,6 +116,9 @@ esp_err_t esp_wifi_deinit(void)
+         return err;
+     }
+ 
++#if CONFIG_ESP_WIFI_SLP_BEACON_LOST_OPT
++    esp_wifi_beacon_monitor_configure(false, 0, 0, 0, 0);
++#endif
+ #if CONFIG_ESP_NETIF_TCPIP_ADAPTER_COMPATIBLE_LAYER
+     tcpip_adapter_clear_default_wifi_handlers();
+ #endif
+@@ -262,6 +265,11 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
+             return result;
+         }
+     }
++#if CONFIG_ESP_WIFI_SLP_BEACON_LOST_OPT
++    esp_wifi_beacon_monitor_configure(true, CONFIG_ESP_WIFI_SLP_BEACON_LOST_TIMEOUT,
++            CONFIG_ESP_WIFI_SLP_BEACON_LOST_THRESHOLD, CONFIG_ESP_WIFI_SLP_PHY_ON_DELTA_EARLY_TIME,
++            CONFIG_ESP_WIFI_SLP_PHY_OFF_DELTA_TIMEOUT_TIME);
++#endif
+     adc2_cal_include(); //This enables the ADC2 calibration constructor at start up.
+ 
+     esp_wifi_config_info();
+diff --git a/components/lwip/lwip b/components/lwip/lwip
+index 2195f7416f..85bf5cb910 160000
+--- a/components/lwip/lwip
++++ b/components/lwip/lwip
+@@ -1 +1 @@
+-Subproject commit 2195f7416fb3136831babf3e96c027a73075bd4f
++Subproject commit 85bf5cb91036f945ff04bff1b5b835e62a515747
+diff --git a/components/lwip/port/esp32/include/lwipopts.h b/components/lwip/port/esp32/include/lwipopts.h
+index 072abb64d7..4d5373f680 100644
+--- a/components/lwip/port/esp32/include/lwipopts.h
++++ b/components/lwip/port/esp32/include/lwipopts.h
+@@ -328,6 +328,7 @@
+ 
+ #define DNS_MAX_SERVERS                 3
+ #define DNS_FALLBACK_SERVER_INDEX        (DNS_MAX_SERVERS - 1)
++#define DNS_MAX_RETRIES 1
+ 
+ /*
+    ---------------------------------
+@@ -995,9 +996,11 @@
+ #ifdef CONFIG_LWIP_TIMERS_ONDEMAND
+ #define ESP_LWIP_IGMP_TIMERS_ONDEMAND            1
+ #define ESP_LWIP_MLD6_TIMERS_ONDEMAND            1
++#define ESP_LWIP_DNS_TIMERS_ONDEMAND             1
+ #else
+ #define ESP_LWIP_IGMP_TIMERS_ONDEMAND            0
+ #define ESP_LWIP_MLD6_TIMERS_ONDEMAND            0
++#define ESP_LWIP_DNS_TIMERS_ONDEMAND             0
+ #endif
+ 
+ #define TCP_SND_BUF                     CONFIG_LWIP_TCP_SND_BUF_DEFAULT
+diff --git a/components/mqtt/esp-mqtt b/components/mqtt/esp-mqtt
+index f10321a53b..c8777d27ac 160000
+--- a/components/mqtt/esp-mqtt
++++ b/components/mqtt/esp-mqtt
+@@ -1 +1 @@
+-Subproject commit f10321a53b53a146ee299cfecc320b89c0cf6611
++Subproject commit c8777d27aca900d086ad0f56dd8da71a7bada700
+diff --git a/components/wifi_provisioning/src/scheme_softap.c b/components/wifi_provisioning/src/scheme_softap.c
+index 626cec81ba..289b1a4c62 100644
+--- a/components/wifi_provisioning/src/scheme_softap.c
++++ b/components/wifi_provisioning/src/scheme_softap.c
+@@ -182,15 +182,10 @@ static esp_err_t set_config_service(void *config, const char *service_name, cons
+     }
+ 
+     wifi_prov_softap_config_t *softap_config = (wifi_prov_softap_config_t *) config;
++    strlcpy(softap_config->ssid, service_name, sizeof(softap_config->ssid));
+     if (service_key) {
+-        const int service_key_len = strlen(service_key);
+-        if (service_key_len < 8 || service_key_len >= sizeof(softap_config->password)) {
+-            ESP_LOGE(TAG, "Incorrect passphrase length for softAP: %d (Expected: Min - 8, Max - 64)", service_key_len);
+-            return ESP_ERR_INVALID_ARG;
+-        }
+         strlcpy(softap_config->password, service_key,  sizeof(softap_config->password));
+     }
+-    strlcpy(softap_config->ssid, service_name, sizeof(softap_config->ssid));
+     return ESP_OK;
+ }
+ 

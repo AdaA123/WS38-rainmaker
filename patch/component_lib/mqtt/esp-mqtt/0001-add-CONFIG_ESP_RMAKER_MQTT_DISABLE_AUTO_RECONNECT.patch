@@ -1,0 +1,48 @@
+From c8777d27aca900d086ad0f56dd8da71a7bada700 Mon Sep 17 00:00:00 2001
+From: chentao <chentao2@espressif.com>
+Date: Mon, 7 Feb 2022 17:02:07 +0800
+Subject: [PATCH] add CONFIG_ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
+
+---
+ include/mqtt_client.h |  5 +++++
+ mqtt_client.c         | 11 +++++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/include/mqtt_client.h b/include/mqtt_client.h
+index 348d072..9422f4d 100644
+--- a/include/mqtt_client.h
++++ b/include/mqtt_client.h
+@@ -402,6 +402,11 @@ esp_err_t esp_mqtt_client_register_event(esp_mqtt_client_handle_t client, esp_mq
+  */
+ int esp_mqtt_client_get_outbox_size(esp_mqtt_client_handle_t client);
+ 
++#if CONFIG_ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
++int esp_mqtt_client_is_connected(esp_mqtt_client_handle_t client);
++#endif
++
++
+ #ifdef __cplusplus
+ }
+ #endif //__cplusplus
+diff --git a/mqtt_client.c b/mqtt_client.c
+index f015de9..67729e2 100644
+--- a/mqtt_client.c
++++ b/mqtt_client.c
+@@ -1891,3 +1891,14 @@ int esp_mqtt_client_get_outbox_size(esp_mqtt_client_handle_t client)
+ 
+     return outbox_size;
+ }
++
++#if CONFIG_ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
++int esp_mqtt_client_is_connected(esp_mqtt_client_handle_t client)
++{
++	if (client == NULL) {
++        return 0;
++    }
++	return client->state == MQTT_STATE_CONNECTED;
++}
++#endif
++
+-- 
+2.25.1
+

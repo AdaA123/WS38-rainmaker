@@ -1,0 +1,20 @@
+{
+    "project_name":       "bootloader",
+    "project_path":       "/home/adaa/esp/test3/components/bootloader/subproject",
+    "build_dir":          "/home/adaa/esp/esp-lowpower-feature-slw_switch_rainmaker/projects/single_live_wire_switch/build/bootloader",
+    "config_file":        "/home/adaa/esp/esp-lowpower-feature-slw_switch_rainmaker/projects/single_live_wire_switch/sdkconfig",
+    "config_defaults":    "",
+    "app_elf":            "bootloader.elf",
+    "app_bin":            "bootloader.bin",
+    "git_revision":       "HEAD-HASH-NOTFOUND",
+    "target":             "esp32c3",
+    "phy_data_partition": "",
+    "monitor_baud" :      "115200",
+    "monitor_toolprefix": "riscv32-esp-elf-",
+    "config_environment" : {
+        "COMPONENT_KCONFIGS" : "/home/adaa/esp/test3/components/efuse/Kconfig;/home/adaa/esp/test3/components/esp32c3/Kconfig;/home/adaa/esp/test3/components/esp_common/Kconfig;/home/adaa/esp/test3/components/esp_system/Kconfig;/home/adaa/esp/test3/components/log/Kconfig;/home/adaa/esp/test3/components/newlib/Kconfig;/home/adaa/esp/test3/components/spi_flash/Kconfig",
+        "COMPONENT_KCONFIGS_PROJBUILD" : "/home/adaa/esp/test3/components/bootloader/Kconfig.projbuild;/home/adaa/esp/test3/components/esptool_py/Kconfig.projbuild;/home/adaa/esp/test3/components/partition_table/Kconfig.projbuild"
+    },
+    "build_components" : [ "bootloader", "bootloader_support", "efuse", "esp32c3", "esp_common", "esp_hw_support", "esp_rom", "esp_system", "esptool_py", "hal", "log", "main", "micro-ecc", "newlib", "partition_table", "riscv", "soc", "spi_flash", "" ],
+    "build_component_paths" : [ "/home/adaa/esp/test3/components/bootloader", "/home/adaa/esp/test3/components/bootloader_support", "/home/adaa/esp/test3/components/efuse", "/home/adaa/esp/test3/components/esp32c3", "/home/adaa/esp/test3/components/esp_common", "/home/adaa/esp/test3/components/esp_hw_support", "/home/adaa/esp/test3/components/esp_rom", "/home/adaa/esp/test3/components/esp_system", "/home/adaa/esp/test3/components/esptool_py", "/home/adaa/esp/test3/components/hal", "/home/adaa/esp/test3/components/log", "/home/adaa/esp/test3/components/bootloader/subproject/main", "/home/adaa/esp/test3/components/bootloader/subproject/components/micro-ecc", "/home/adaa/esp/test3/components/newlib", "/home/adaa/esp/test3/components/partition_table", "/home/adaa/esp/test3/components/riscv", "/home/adaa/esp/test3/components/soc", "/home/adaa/esp/test3/components/spi_flash", "" ]
+}
