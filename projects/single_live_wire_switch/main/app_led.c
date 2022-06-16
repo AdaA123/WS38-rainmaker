@@ -35,6 +35,13 @@ extern __uint8_t s_wifi_init_end_flag;
 void single_fire_led_blink_on()
 {
     s_wifi_init_end_flag = 0;
+    esp_timer_stop(device_led_timer);
+    esp_timer_start_periodic(device_led_timer, 500 * 1000);  
+}
+
+void single_fire_led_blink_on_adc_ok()
+{
+    esp_timer_stop(device_led_timer);
     esp_timer_start_periodic(device_led_timer, 1000 * 1000);  
 }
 

@@ -131,6 +131,12 @@ void app_main()
 	app_driver_init();
 	app_pm_config();
     adc_cheak();
+
+    while(0 == Is_ADC_CHECK_OK())
+    {
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
+    single_fire_led_blink_on_adc_ok();
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()
      */
     app_wifi_init();

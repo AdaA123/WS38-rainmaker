@@ -94,33 +94,6 @@ void IRAM_ATTR single_fire_button2_isr(void *arg)
     }  
 }
 
-void IRAM_ATTR single_fire_button3_isr(void *arg)
-{
-    // if (Get_Bri_Status() == 1)
-    // {
-    //     if (Bright_Add_Press_Flag)
-    //     { 
-    //         Bright_Add_Long_Press();
-    //         Bright_Add_Press_Flag = 0;
-    //     }
-    //     else
-    //     {
-    //         Bright_Sub_Press_Flag = 1;
-    //     }
-    // }
-
-    if(button3_intr_type == GPIO_INTR_LOW_LEVEL){
-        button3_intr_type = GPIO_INTR_HIGH_LEVEL;
-        gpio_set_intr_type(BUTTON_3, GPIO_INTR_HIGH_LEVEL);
-    }else if (button3_intr_type == GPIO_INTR_HIGH_LEVEL) {
-        button3_intr_type = GPIO_INTR_LOW_LEVEL;
-        gpio_set_intr_type(BUTTON_3, GPIO_INTR_LOW_LEVEL);
-    }else {
-        button3_intr_type = GPIO_INTR_HIGH_LEVEL;
-        gpio_set_intr_type(BUTTON_3, GPIO_INTR_HIGH_LEVEL);
-    }
-}
-
 esp_err_t single_fire_button_config(gpio_num_t gpio_num)
 {
     gpio_config_t io_conf;
@@ -151,27 +124,46 @@ static void button_long_timer_callback(void* arg)
 
 static void button2_long_timer_callback(void* arg)
 {
-    if (Bright_Sub_Press_Flag)
+    if (Bri_Status == 1)
     {
-        Bright_Add_Long_Press();
-        Bright_Sub_Press_Flag = 0;
+        dim_add_key_val = gpio_get_level(BUTTON_2);
+        dim_sub_key_val = gpio_get_level(BUTTON_3);
+
+        if (dim_add_key_val != dim_add_key_val_temp)
+        {
+            if (dim_add_key_val != dim_sub_key_val)
+            {
+                Bright_Add_Long_Press();
+            }
+            else
+            {
+                Bright_Sub_Long_Press();
+            }
+        }
+        
+        dim_add_key_val_temp = dim_add_key_val;
     }
-    else
+    else 
     {
-        Bright_Add_Press_Flag = 1;
+        esp_timer_stop(&button2_timer);
     }
 }
 
-static void button3_long_timer_callback(void* arg)
+void start_button_check(void)
 {
-    if (Bright_Add_Press_Flag)
+    dim_add_key_val_temp = gpio_get_level(BUTTON_2);
+    dim_sub_key_val_temp = gpio_get_level(BUTTON_3);
+    if (NULL != button2_timer)
     {
-        Bright_Sub_Long_Press();
-        Bright_Add_Press_Flag = 0;
+        esp_timer_start_periodic(button2_timer, 500);
     }
-    else
+}
+
+void stop_button_check(void)
+{
+    if (NULL != button2_timer)
     {
-        Bright_Sub_Press_Flag = 1;
+        esp_timer_stop(button2_timer);
     }
 }
 
@@ -185,46 +177,30 @@ esp_err_t app_button_init()
     };
     esp_timer_create(&button_long_timer_args, &button1_timer);
     
-    // const esp_timer_create_args_t button2_long_timer_args = {
-    //         .callback = &button2_long_timer_callback,
-    //         .name = "button2_long"
-    // };
-    //esp_timer_create(&button2_long_timer_args, &button2_timer);
+    const esp_timer_create_args_t button2_long_timer_args = {
+            .callback = &button2_long_timer_callback,
+            .name = "button2_long"
+    };
+    esp_timer_create(&button2_long_timer_args, &button2_timer);
 
-    // const esp_timer_create_args_t button3_long_timer_args = {
-    //         .callback = &button3_long_timer_callback,
-    //         .name = "button3_long"
-    // };
-    // esp_timer_create(&button3_long_timer_args, &button3_timer);
 
     ret = single_fire_button_config(BUTTON_1);
-    ret = single_fire_button_config(BUTTON_2);
+    ret = single_fire_button23_config(BUTTON_2);
     ret = single_fire_button23_config(BUTTON_3);
 
     if(gpio_get_level(BUTTON_1) == 0){
         button1_intr_type = GPIO_INTR_NEGEDGE;
     }
-    if(gpio_get_level(BUTTON_2) == 0){
-        button2_intr_type = GPIO_INTR_NEGEDGE;
-    }
-    // if(gpio_get_level(BUTTON_3) == 0){
-    //     button3_intr_type = GPIO_INTR_NEGEDGE;
-    // }
 
-    ret = gpio_hold_en(BUTTON_1);
-    ret = gpio_hold_en(BUTTON_2);
-    ret = gpio_hold_en(BUTTON_3);
+    // ret = gpio_hold_en(BUTTON_1);
+    // ret = gpio_hold_en(BUTTON_2);
+    // ret = gpio_hold_en(BUTTON_3);
 
     ret = gpio_install_isr_service(0);
 
     ret = gpio_isr_handler_add(BUTTON_1, single_fire_button1_isr, (void *)BUTTON_1);
-    ret = gpio_isr_handler_add(BUTTON_2, single_fire_button2_isr, (void *)BUTTON_2);
-    //ret = gpio_isr_handler_add(BUTTON_3, single_fire_button3_isr, (void *)BUTTON_3);
 
     ret = gpio_wakeup_enable(BUTTON_1, GPIO_INTR_LOW_LEVEL);
-    
-    ret = gpio_wakeup_enable(BUTTON_2, GPIO_INTR_LOW_LEVEL);
-    //ret = gpio_wakeup_enable(BUTTON_3, GPIO_INTR_LOW_LEVEL);
 
     ret = esp_sleep_enable_gpio_wakeup();
 

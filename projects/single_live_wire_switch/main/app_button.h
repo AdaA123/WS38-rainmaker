@@ -12,3 +12,7 @@
 #define BUTTON_3        GPIO_NUM_4
 
 esp_err_t app_button_init(void);
+
+void start_button_check(void);
+
+void stop_button_check(void);

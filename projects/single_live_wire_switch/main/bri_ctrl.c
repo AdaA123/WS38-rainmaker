@@ -387,16 +387,9 @@ void Open_The_Lights(void)
 {
 	Bri_Status = 1;
     
-	//single_fire_led_on();
-	//send open  signal
-
-    if (s_wifi_init_end_flag)
-    {
-        //esp_wifi_start();
-    }
-
     send_bri_ctrl_info(OnOffCMD, Bri_Status);
 
+    start_button_check();
 }
 
 /*-----------------------------------------------------------------------------
@@ -410,13 +403,10 @@ Others:
 void Close_The_Lights(void)
 {
 	Bri_Status = 0;
+    stop_button_check();
     //single_fire_led_off();
 	//send close  signal
     send_bri_ctrl_info(OnOffCMD, Bri_Status);
-    if (s_wifi_init_end_flag)
-    {
-        //esp_wifi_stop();
-    }
 }
 
 /*-----------------------------------------------------------------------------
