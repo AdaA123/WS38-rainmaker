@@ -39,12 +39,18 @@ static esp_pm_lock_handle_t s_pm_cpu_lock = NULL;
 
 void stop_power_save(void)
 {
-    ESP_ERROR_CHECK(esp_pm_lock_acquire(s_pm_cpu_lock));
+    if (s_pm_cpu_lock != NULL)
+    {
+        ESP_ERROR_CHECK(esp_pm_lock_acquire(s_pm_cpu_lock));
+    }
 }
 
 void start_power_save(void)
-{
-    ESP_ERROR_CHECK(esp_pm_lock_release(s_pm_cpu_lock));
+{    
+    if (s_pm_cpu_lock != NULL)
+    {
+        ESP_ERROR_CHECK(esp_pm_lock_release(s_pm_cpu_lock));
+    }
 }
 
 int app_driver_init(void)

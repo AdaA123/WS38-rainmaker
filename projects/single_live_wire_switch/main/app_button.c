@@ -222,6 +222,7 @@ esp_err_t app_button_init()
     //ret = gpio_isr_handler_add(BUTTON_3, single_fire_button3_isr, (void *)BUTTON_3);
 
     ret = gpio_wakeup_enable(BUTTON_1, GPIO_INTR_LOW_LEVEL);
+    
     ret = gpio_wakeup_enable(BUTTON_2, GPIO_INTR_LOW_LEVEL);
     //ret = gpio_wakeup_enable(BUTTON_3, GPIO_INTR_LOW_LEVEL);
 
