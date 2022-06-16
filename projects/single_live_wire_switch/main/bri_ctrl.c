@@ -93,7 +93,7 @@ void send_uart_info_task(void *arg)
 
         ucSendFlag = 0;
         
-        if(OnOffCMD == ucSendBuff_temp[2]) //&& 1 == ucSendBuff_temp[3]
+        if(OnOffCMD == ucSendBuff_temp[2] || CChargingCMD == ucSendBuff_temp[2]) //&& 1 == ucSendBuff_temp[3]
         {
             gpio_hold_dis(MCU_WAJEUP_IO);
             gpio_set_level(MCU_WAJEUP_IO, 1);
@@ -332,9 +332,9 @@ void Bright_Sub_Long_Press()
     if (Bri_Now_Pct > Bri_Min_Pct)
     {
         Bri_Now_Pct -= 1;
+	    send_bri_ctrl_info(BriNowCMD, Bri_Now_Pct);
     }
 
-	send_bri_ctrl_info(BriNowCMD, Bri_Now_Pct);
 }
 
 /*-----------------------------------------------------------------------------
@@ -369,9 +369,9 @@ void Bright_Add_Long_Press(void)
     if (Bri_Now_Pct < Bri_Max_Pct)
     {
         Bri_Now_Pct += 1;
+	    send_bri_ctrl_info(BriNowCMD, Bri_Now_Pct);
     }
     
-	send_bri_ctrl_info(BriNowCMD, Bri_Now_Pct);
 }
 
 extern __uint8_t s_wifi_init_end_flag;

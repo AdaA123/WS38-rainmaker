@@ -36,13 +36,19 @@ void single_fire_led_blink_on()
 {
     s_wifi_init_end_flag = 0;
     esp_timer_stop(device_led_timer);
-    esp_timer_start_periodic(device_led_timer, 500 * 1000);  
+    esp_timer_start_periodic(device_led_timer, 1500 * 1000);  
 }
 
-void single_fire_led_blink_on_adc_ok()
+void single_fire_led_blink_on_adc()
 {
     esp_timer_stop(device_led_timer);
-    esp_timer_start_periodic(device_led_timer, 1000 * 1000);  
+    esp_timer_start_periodic(device_led_timer, 400 * 1000);  
+}
+
+void single_fire_led_blink_off_adc()            
+{
+    esp_timer_stop(device_led_timer);
+    single_fire_led_off();
 }
 
 void single_fire_led_blink_off()            
@@ -72,7 +78,7 @@ void app_led_init()
     };
     esp_timer_create(&device_led_timer_args, &device_led_timer);
 
-	single_fire_led_blink_on();
+	single_fire_led_blink_on_adc();
 
     return;
 }

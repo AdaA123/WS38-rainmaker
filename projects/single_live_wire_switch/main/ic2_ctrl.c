@@ -23,6 +23,7 @@ static uint16_t adc1_reading;
 static int n, ic2_cnt = 0;
 
 static int ADC_CHECK_OK = 0;
+static int ic2_flag = 0;
 
 int Is_ADC_CHECK_OK(void)
 {
@@ -58,12 +59,13 @@ static void single_read(void* arg)
             printf("ADC check end\n");
             break;
         }
-        else
+        else if (ic2_flag == 0)
         {
-            printf("ADC checking... \n");
-            send_bri_ctrl_info(CChargingCMD, 1);
+            //send_bri_ctrl_info(CChargingCMD, 1);
+            ic2_flag = 1;
         }
 
+        printf("ADC checking... \n");
         vTaskDelay(pdMS_TO_TICKS(2 * 1000));
     }
 #endif
@@ -84,13 +86,13 @@ static void single_read(void* arg)
 
         if (2189 > adc1_reading) // 1.55v (0~2.9v)
         {
-            if (3 < ic2_cnt)
+            if (3 == ic2_cnt)
             {
-                send_bri_ctrl_info(CChargingCMD, 1);
+                //send_bri_ctrl_info(CChargingCMD, 1);
                 esp_wifi_stop();
-	            single_fire_led_blink_on();
+	            single_fire_led_blink_on_adc();
             }
-            else 
+            else if (3 > ic2_cnt)
             {
                 ic2_cnt++;
             }
@@ -100,9 +102,9 @@ static void single_read(void* arg)
             ic2_cnt--;
             if (0 == ic2_cnt)
             {
-                send_bri_ctrl_info(CChargingCMD, 0);
+                //send_bri_ctrl_info(CChargingCMD, 0);
                 esp_wifi_start();
-	            single_fire_led_blink_off();
+	            single_fire_led_blink_off_adc();
             }
         }
 

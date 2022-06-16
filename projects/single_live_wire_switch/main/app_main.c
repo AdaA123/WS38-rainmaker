@@ -136,7 +136,7 @@ void app_main()
     {
         vTaskDelay(1000/portTICK_PERIOD_MS);
     }
-    single_fire_led_blink_on_adc_ok();
+    single_fire_led_blink_on();
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()
      */
     app_wifi_init();
