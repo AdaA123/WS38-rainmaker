@@ -62,6 +62,7 @@ void dimmer_rmaker_init(void);
 void esp_rmaker_update(uint8_t cmd_tyed, uint32_t dat);
 
 
+void sys_check();
 
 /*-----------------------------------------------------------------------------
 Function: send_bri_ctrl_info()

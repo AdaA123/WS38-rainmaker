@@ -33,8 +33,8 @@ static const char *TAG = "uart_events";
 
 #define EX_UART_NUM UART_NUM_1
 #define PATTERN_CHR_NUM    (3)         /*!< Set the number of consecutive and identical characters received by receiver which defines a UART pattern*/
-#define UART_GPIO_TX    10
-#define UART_GPIO_RX    7
+#define UART_GPIO_TX    GPIO_NUM_10
+#define UART_GPIO_RX    GPIO_NUM_7
 
 #define MCU_WAJEUP_IO   GPIO_NUM_6
 
@@ -56,7 +56,7 @@ uint16_t Bri_Status = 0;
 
 char Bri_Min_Pct = 0;	//最小亮度
 char Bri_Max_Pct = 100;      //最大亮度
-char Bri_Now_Pct =60;      //当前亮度
+char Bri_Now_Pct =50;      //当前亮度
 
 extern __uint8_t s_wifi_init_end_flag;
 
@@ -93,6 +93,16 @@ void send_uart_info_task(void *arg)
 
         ucSendFlag = 0;
         
+        if (
+            ucSendBuff_temp[0] != SendHead1
+            || ucSendBuff_temp[1] != SendHead2
+            //|| ucSendBuff_temp[4] != (ucSendBuff_temp[0] + ucSendBuff_temp[1] + ucSendBuff_temp[2] + ucSendBuff_temp[3])
+        )
+        {
+            ucSendBuff_temp[2] = ERRORCMD;
+            break;
+        }
+
         if(OnOffCMD == ucSendBuff_temp[2] || CChargingCMD == ucSendBuff_temp[2]) //&& 1 == ucSendBuff_temp[3]
         {
             gpio_hold_dis(MCU_WAJEUP_IO);
@@ -140,14 +150,10 @@ Others:
 -----------------------------------------------------------------------------*/
 void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
 {
-    if (0 == ucSendFlag)
-    {
-        ucSendBuff[2] = cmd;
-        ucSendBuff[3] = dat;
-        ucSendBuff[4] = ucSendBuff[0] + ucSendBuff[1] + ucSendBuff[2]  + ucSendBuff[3];
-
-        ucSendFlag = 1;
-    }
+    ucSendBuff[2] = cmd;
+    ucSendBuff[3] = dat;
+    ucSendBuff[4] = ucSendBuff[0] + ucSendBuff[1] + ucSendBuff[2]  + ucSendBuff[3];
+    ucSendFlag = 1;
 
     // gpio_hold_dis(MCU_WAJEUP_IO);
     // gpio_set_level(MCU_WAJEUP_IO, 1);
@@ -334,7 +340,6 @@ void Bright_Sub_Long_Press()
         Bri_Now_Pct -= 1;
 	    send_bri_ctrl_info(BriNowCMD, Bri_Now_Pct);
     }
-
 }
 
 /*-----------------------------------------------------------------------------
@@ -374,6 +379,15 @@ void Bright_Add_Long_Press(void)
     
 }
 
+void sys_check()
+{
+    if (Bri_Status == 0)
+    {
+        //stop_button_check();
+        start_power_save();
+    }
+}
+
 extern __uint8_t s_wifi_init_end_flag;
 /*-----------------------------------------------------------------------------
 Function: Open_The_Lights(void)
@@ -389,7 +403,7 @@ void Open_The_Lights(void)
     
     send_bri_ctrl_info(OnOffCMD, Bri_Status);
 
-    start_button_check();
+    //start_button_check();
 }
 
 /*-----------------------------------------------------------------------------
@@ -592,8 +606,6 @@ void Bri_Ctrl_Init(void)
     bri_ctrl_uart_init();
 
     Close_The_Lights();
-
-    printf("Bri_Ctrl_Init \n");
 
     return;
 }

@@ -88,7 +88,6 @@ static void single_read(void* arg)
         {
             if (3 == ic2_cnt)
             {
-                //send_bri_ctrl_info(CChargingCMD, 1);
                 esp_wifi_stop();
 	            single_fire_led_blink_on_adc();
             }
@@ -102,7 +101,6 @@ static void single_read(void* arg)
             ic2_cnt--;
             if (0 == ic2_cnt)
             {
-                //send_bri_ctrl_info(CChargingCMD, 0);
                 esp_wifi_start();
 	            single_fire_led_blink_off_adc();
             }

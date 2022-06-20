@@ -56,7 +56,6 @@ void start_power_save(void)
 int app_driver_init(void)
 {
 	app_led_init();
-	//app_relay_init();
 	app_button_init();
     Bri_Ctrl_Init();
 	return ESP_OK;
@@ -134,7 +133,7 @@ void app_main()
 
     while(0 == Is_ADC_CHECK_OK())
     {
-        vTaskDelay(1000/portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(2 * 1000));
     }
     single_fire_led_blink_on();
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()

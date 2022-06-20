@@ -7,7 +7,8 @@ extern "C" {
 
 void adc_cheak(void);
 int Is_ADC_CHECK_OK(void);
-void single_fire_led_blink_on_adc_ok();
+void single_fire_led_blink_on_adc();
+void single_fire_led_blink_off_adc();   
 
 #ifdef __cplusplus
 }
