@@ -37,26 +37,40 @@ __uint8_t s_wifi_init_end_flag = 0 ;
 
 static esp_pm_lock_handle_t s_pm_cpu_lock = NULL;
 
+static uint8_t lock_status = 0;
+
 void stop_power_save(void)
 {
-    if (s_pm_cpu_lock != NULL)
+    if (s_pm_cpu_lock != NULL && lock_status == 0)
     {
+        lock_status = 1;
         ESP_ERROR_CHECK(esp_pm_lock_acquire(s_pm_cpu_lock));
     }
 }
 
 void start_power_save(void)
 {    
-    if (s_pm_cpu_lock != NULL)
+    if (s_pm_cpu_lock != NULL&& lock_status == 1)
     {
+        lock_status = 0;
         ESP_ERROR_CHECK(esp_pm_lock_release(s_pm_cpu_lock));
+        printf("start_power_save\n");
     }
 }
 
-int app_driver_init(void)
+void app_wifi_init_end(void)
 {
-	app_led_init();
-	app_button_init();
+    printf("WIFIINITENDCMD\n");
+    send_bri_ctrl_info(WIFIINITENDCMD,1);
+    // single_fire_led_blink_off();
+    // esp_rmaker_update(OnOffCMD, Get_Bri_Status());
+    // esp_rmaker_update(BriNowCMD, Get_Btight_Pct());
+}
+
+int app_driver_init(void)   
+{
+	//app_led_init();
+	//app_button_init();
     Bri_Ctrl_Init();
 	return ESP_OK;
 }
@@ -130,12 +144,8 @@ void app_main()
 	app_driver_init();
 	app_pm_config();
     adc_cheak();
+    wifi_start_init();
 
-    while(0 == Is_ADC_CHECK_OK())
-    {
-        vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-    }
-    single_fire_led_blink_on();
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()
      */
     app_wifi_init();

@@ -60,7 +60,17 @@ static esp_err_t write_cb(const esp_rmaker_device_t *device, const esp_rmaker_pa
         ESP_LOGI(TAG, "Received value = %d for %s - %s",
                 val.val.i, device_name, param_name);
             ESP_LOGI(TAG, "Set_Btight_Pct");
-            Set_Btight_Pct( val.val.i);//app_light_set_brightness(val.val.i);
+            if(Get_Bri_Status())
+            {
+                Set_Btight_Pct( val.val.i);//app_light_set_brightness(val.val.i);
+            }
+            else
+            {
+                esp_rmaker_param_update_and_report(  
+                            esp_rmaker_device_get_param_by_name(switch_device, ESP_RMAKER_DEF_BRIGHTNESS_NAME),  
+                            esp_rmaker_int(Get_Btight_Pct())
+                            );
+            }
     } else {
         /* Silently ignoring invalid params */
         esp_rmaker_param_update_and_report(param, val);

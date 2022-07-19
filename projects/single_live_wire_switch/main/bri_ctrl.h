@@ -22,13 +22,6 @@ extern "C" {
 #define ZCD_START_ANGLE  25
 #define ZCD_END_ANGLE  	125
 
-#define OnOffCMD		0x00    //开关命令
-#define BriNowCMD		0x01    //当前亮度
-#define BriMaxCMD		0x02    //最大亮度
-#define BriMinCMD		 0x03   //最小亮度
-#define CChargingCMD	0x04    //开启充电
-#define ERRORCMD		0xff       //错误
-
 uint16_t Get_Bri_Status(void); 
 
 void ZCD_CTRL_Time(unsigned char T100ns);
@@ -61,18 +54,9 @@ void dimmer_rmaker_init(void);
 
 void esp_rmaker_update(uint8_t cmd_tyed, uint32_t dat);
 
-
 void sys_check();
 
-/*-----------------------------------------------------------------------------
-Function: send_bri_ctrl_info()
-Description: 发送控制MCU命令
-Input:
-Output:
-Return:
-Others:
------------------------------------------------------------------------------*/
-void send_bri_ctrl_info(unsigned char cmd, unsigned char dat); //
+void Set_Bri_Status(uint16_t status);
 
 /* Private defines -----------------------------------------------------------*/
 

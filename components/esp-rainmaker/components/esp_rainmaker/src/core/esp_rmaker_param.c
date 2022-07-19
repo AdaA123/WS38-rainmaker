@@ -258,7 +258,7 @@ static esp_err_t esp_rmaker_report_param_internal(uint8_t flags)
     return err;
 }
 
-extern void single_fire_led_blink_off();
+extern void app_wifi_init_end();
 
 esp_err_t esp_rmaker_report_node_state(void)
 {
@@ -271,7 +271,7 @@ esp_err_t esp_rmaker_report_node_state(void)
             snprintf(publish_topic, sizeof(publish_topic), "node/%s/%s",
                     esp_rmaker_get_node_id(), NODE_PARAMS_LOCAL_INIT_TOPIC_SUFFIX);
             ESP_LOGI(TAG, "Reporting params (init): %s", node_params_buf);
-            single_fire_led_blink_off();
+            app_wifi_init_end();
             if (esp_rmaker_params_mqtt_init_done) {
                 esp_rmaker_mqtt_publish(publish_topic, node_params_buf, strlen(node_params_buf), RMAKER_MQTT_QOS1, NULL);
             } else {

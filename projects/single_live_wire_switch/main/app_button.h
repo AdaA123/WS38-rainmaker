@@ -11,6 +11,8 @@
 #define BUTTON_2        GPIO_NUM_5
 #define BUTTON_3        GPIO_NUM_4
 
+#define REBOOT_DELAY        2
+
 esp_err_t app_button_init(void);
 
 void start_button_check(void);

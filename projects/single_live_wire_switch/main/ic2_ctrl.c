@@ -40,7 +40,7 @@ static void single_read(void* arg)
     adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_DB_11);
 
     vTaskDelay(pdMS_TO_TICKS(1 * 1000));
-#if 1
+#if 0
     while(1)
     {
         n = GET_ADC_TIMES;
@@ -54,7 +54,7 @@ static void single_read(void* arg)
         ESP_LOGI("single_read ADC1_CH3", "%d", adc1_reading);
         adc1_reading_sum = 0;
 
-        if (2450 < adc1_reading) // 1.80v (0~2.9v)
+        if (2750 < adc1_reading) // 1.95v (0~2.9v)
         {
             printf("ADC check end\n");
             break;
@@ -84,29 +84,31 @@ static void single_read(void* arg)
         //ESP_LOGI("single_read ADC1_CH3", "%d", adc1_reading);
         adc1_reading_sum = 0;
 
-        if (2189 > adc1_reading) // 1.55v (0~2.9v)
+        if (2189 < adc1_reading && 0 == ic2_cnt)
         {
-            if (3 == ic2_cnt)
-            {
-                esp_wifi_stop();
-	            single_fire_led_blink_on_adc();
-            }
-            else if (3 > ic2_cnt)
-            {
-                ic2_cnt++;
-            }
-        }
-        else if (2330 < adc1_reading && 0 < ic2_cnt)
+            vTaskDelay(pdMS_TO_TICKS(GET_ADC_DEALY * 1000));
+        } else 
+        if (2330 < adc1_reading) // 1.55v (0~2.9v)
         {
-            ic2_cnt--;
-            if (0 == ic2_cnt)
+            if (1 == ic2_cnt)
             {
                 esp_wifi_start();
 	            single_fire_led_blink_off_adc();
             }
+            ic2_cnt--;
+            vTaskDelay(pdMS_TO_TICKS(30 * 1000));
+        } else 
+        if (2189 > adc1_reading)
+        {
+            if (0 == ic2_cnt)
+            {
+                esp_wifi_stop();
+	            single_fire_led_blink_on_adc();
+            }
+            ic2_cnt = 3;
+            vTaskDelay(pdMS_TO_TICKS(30 * 1000));
         }
 
-        vTaskDelay(pdMS_TO_TICKS(GET_ADC_DEALY * 1000));
     } while (1);
 
     vTaskDelete(NULL);

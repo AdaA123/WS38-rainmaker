@@ -18,6 +18,7 @@
 #include "app_button.h"
 #include "bri_ctrl.h"
 #include "ic2_ctrl.h"
+#include "app_uart.h"
 
 enum {
 	SWITCH_CHANNEL_1,
@@ -35,4 +36,5 @@ void app_rainmaker_reconnect_timer_start(void);
 void app_rainmaker_reconnect_timer_stop(void);
 void start_power_save(void);
 void stop_power_save(void);
+void app_wifi_init_end(void);
 

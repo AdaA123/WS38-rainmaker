@@ -17,8 +17,6 @@
 #define BUTTON_DELAY_CONFIG    2000
 #define QCLOUD_NETWORK_CONFIG  5000000
 
-#define REBOOT_DELAY        2
-
 static esp_timer_handle_t button1_timer = NULL;
 static esp_timer_handle_t button2_timer = NULL;
 static esp_timer_handle_t button3_timer = NULL;
