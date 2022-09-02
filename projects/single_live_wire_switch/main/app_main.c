@@ -144,7 +144,6 @@ void app_main()
 	app_driver_init();
 	app_pm_config();
     adc_cheak();
-    wifi_start_init();
 
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()
      */

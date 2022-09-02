@@ -261,7 +261,6 @@ void Open_The_Lights(void)
     
     send_bri_ctrl_info(OnOffCMD, Bri_Status);
 
-    //start_button_check();
 }
 
 /*-----------------------------------------------------------------------------
@@ -275,7 +274,6 @@ Others:
 void Close_The_Lights(void)
 {
 	Bri_Status = 0;
-    stop_button_check();
     //single_fire_led_off();
 	//send close  signal
     send_bri_ctrl_info(OnOffCMD, Bri_Status);

@@ -18,10 +18,6 @@
 
 #define GET_ADC_DEALY 2*60 //s
 
-static uint32_t adc1_reading_sum = 0;
-static uint16_t adc1_reading;
-static int n, ic2_cnt = 0;
-
 static int ADC_CHECK_OK = 0;
 static int ic2_flag = 0;
 
@@ -81,7 +77,7 @@ static void single_read(void* arg)
         }
 
         adc1_reading = adc1_reading_sum / GET_ADC_TIMES;
-        //ESP_LOGI("single_read ADC1_CH3", "%d", adc1_reading);
+        ESP_LOGI("single_read ADC1_CH3", "%d", adc1_reading);
         adc1_reading_sum = 0;
 
         if (2189 < adc1_reading && 0 == ic2_cnt)

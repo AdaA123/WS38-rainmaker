@@ -55,7 +55,6 @@ static esp_err_t write_cb(const esp_rmaker_device_t *device, const esp_rmaker_pa
         {
             Close_The_Lights();
         }
-        printf("\n---------------------\n");
         esp_rmaker_param_update_and_report(  
                     esp_rmaker_device_get_param_by_name(switch_device, ESP_RMAKER_DEF_POWER_NAME),  
                     esp_rmaker_bool(Get_Bri_Status()?true:false)
@@ -240,10 +239,10 @@ int app_rainmaker_init(void)
     }
 
     /* Create a device and add the relevant parameters to it */
-    switch_device = esp_rmaker_lightbulb_device_create("Light", NULL, 0);
+    switch_device = esp_rmaker_lightbulb_device_create("Switch", NULL, 0);
     esp_rmaker_device_add_cb(switch_device, write_cb, NULL);
 
-    esp_rmaker_device_add_param(switch_device, esp_rmaker_brightness_param_create(ESP_RMAKER_DEF_BRIGHTNESS_NAME, 25));
+    //esp_rmaker_device_add_param(switch_device, esp_rmaker_brightness_param_create(ESP_RMAKER_DEF_BRIGHTNESS_NAME, 25));
     //esp_rmaker_device_add_param(light_device, esp_rmaker_hue_param_create(ESP_RMAKER_DEF_HUE_NAME, DEFAULT_HUE));
     //esp_rmaker_device_add_param(light_device, esp_rmaker_saturation_param_create(ESP_RMAKER_DEF_SATURATION_NAME, DEFAULT_SATURATION));
 
