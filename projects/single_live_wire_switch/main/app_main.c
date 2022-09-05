@@ -58,20 +58,12 @@ void start_power_save(void)
     }
 }
 
-void app_wifi_init_end(void)
-{
-    printf("WIFIINITENDCMD\n");
-    send_bri_ctrl_info(WIFIINITENDCMD,1);
-    // single_fire_led_blink_off();
-    // esp_rmaker_update(OnOffCMD, Get_Bri_Status());
-    // esp_rmaker_update(BriNowCMD, Get_Btight_Pct());
-}
-
 int app_driver_init(void)   
 {
-	//app_led_init();
-	//app_button_init();
-    Bri_Ctrl_Init();
+	app_led_init();
+	app_button_init();
+    //Bri_Ctrl_Init();
+    app_relay_init();
 	return ESP_OK;
 }
 

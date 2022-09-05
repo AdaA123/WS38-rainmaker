@@ -8,9 +8,7 @@
 #include <esp_rmaker_utils.h>
 //#include  "app_reset.h"
 
-#include "app_button.h"
-#include "bri_ctrl.h"
-#include "app_led.h"
+#include "app_priv.h"
 
 #define BUTTON_DELAY_MIN_CONFIG  50000
 #define BUTTON_DELAY_MAX_CONFIG  3000000
@@ -33,11 +31,9 @@ void IRAM_ATTR single_fire_button1_isr(void *arg)
         esp_timer_stop(button1_timer);
         if(esp_timer_get_time() > button_delay_time + BUTTON_DELAY_MIN_CONFIG && 
                esp_timer_get_time() < button_delay_time + BUTTON_DELAY_MAX_CONFIG ){
-            Toggle_The_Lights(); //single_fire_set_leval(RELAY_1, SINGLE_FIRE_NEGATE);
-            button_delay_time = esp_timer_get_time();
-        }else{
-            button_delay_time = esp_timer_get_time();
+            app_relay_toggle(); //single_fire_set_leval(RELAY_1, SINGLE_FIRE_NEGATE);
         }
+        button_delay_time = esp_timer_get_time();
         button1_intr_type = GPIO_INTR_LOW_LEVEL;
         gpio_set_intr_type(BUTTON_1, GPIO_INTR_LOW_LEVEL);
     }else {

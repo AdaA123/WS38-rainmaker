@@ -31,7 +31,6 @@ static void device_led_timer_callback(void* arg)
     gpio_hold_en(PROVISION_LED);
 }
 
-extern __uint8_t s_wifi_init_end_flag;
 void single_fire_led_blink_on()
 {
     esp_timer_stop(device_led_timer);
@@ -52,7 +51,6 @@ void single_fire_led_blink_off_adc()
 
 void single_fire_led_blink_off()            
 {
-    s_wifi_init_end_flag = 1;
     esp_timer_stop(device_led_timer);
     single_fire_led_off();
 }

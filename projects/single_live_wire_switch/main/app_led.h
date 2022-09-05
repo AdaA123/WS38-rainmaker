@@ -7,7 +7,7 @@
 */
 #pragma once
 
-#define PROVISION_LED   GPIO_NUM_2
+#define PROVISION_LED   GPIO_NUM_7
 
 enum {
 	LED_STATE_OFF,

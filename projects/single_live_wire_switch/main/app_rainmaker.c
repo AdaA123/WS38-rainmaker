@@ -49,31 +49,18 @@ static esp_err_t write_cb(const esp_rmaker_device_t *device, const esp_rmaker_pa
         ESP_LOGI(TAG, "Received value = %s for %s - %s", val.val.b? "true" : "false", device_name, param_name);
         if (val.val.b)
         {
-            Open_The_Lights();
+            app_relay_onoff(1);
         }
         else
         {
-            Close_The_Lights();
+            app_relay_onoff(0);
         }
         esp_rmaker_param_update_and_report(  
                     esp_rmaker_device_get_param_by_name(switch_device, ESP_RMAKER_DEF_POWER_NAME),  
-                    esp_rmaker_bool(Get_Bri_Status()?true:false)
+                    esp_rmaker_bool(app_get_relay_status())
                     );
-        ESP_LOGI(TAG, "report status %s", Get_Bri_Status() ? "true" : "false");
+        ESP_LOGI(TAG, "report status %s", app_get_relay_status() ? "true" : "false");
          //app_light_set_power(val.val.b);
-    } else if (strcmp(param_name, ESP_RMAKER_DEF_BRIGHTNESS_NAME) == 0) {
-        ESP_LOGI(TAG, "Received value = %d for %s - %s",
-                val.val.i, device_name, param_name);
-            ESP_LOGI(TAG, "Set_Btight_Pct");
-        if(Get_Bri_Status())
-        {
-            Set_Btight_Pct( val.val.i);//app_light_set_brightness(val.val.i);
-            esp_rmaker_param_update_and_report(  
-                        esp_rmaker_device_get_param_by_name(switch_device, ESP_RMAKER_DEF_BRIGHTNESS_NAME),  
-                        esp_rmaker_int(Get_Btight_Pct())
-                        );
-        }
-        ESP_LOGI(TAG, "report Btight_Pct %d", Get_Btight_Pct() );
     } else {
         /* Silently ignoring invalid params */
         esp_rmaker_param_update_and_report(param, val);
@@ -82,36 +69,22 @@ static esp_err_t write_cb(const esp_rmaker_device_t *device, const esp_rmaker_pa
     return ESP_OK;
 }
 
-void esp_rmaker_update(uint8_t cmd_tyed, uint32_t dat)
+void esp_rmaker_update(bool dat)
 {
-    switch (cmd_tyed)
-    {
-    case OnOffCMD:
-        {
-            esp_rmaker_param_update_and_report(  
-                            esp_rmaker_device_get_param_by_name(switch_device, ESP_RMAKER_DEF_POWER_NAME),  
-                            esp_rmaker_bool(dat)
-                            );
-        }
-        /* code */
-        break;
-    
-    case BriNowCMD:         
-        {
-            esp_rmaker_param_update_and_report(  
-                            esp_rmaker_device_get_param_by_name(switch_device, ESP_RMAKER_DEF_BRIGHTNESS_NAME),  
-                            esp_rmaker_int(dat)
-                            );
-        }
-        break;
-
-    default:
-        break;
-    }
+    esp_rmaker_param_update_and_report(  
+                    esp_rmaker_device_get_param_by_name(switch_device, ESP_RMAKER_DEF_POWER_NAME),  
+                    esp_rmaker_bool(dat)
+                    );
 
     return;
 }
 
+void app_wifi_init_end(void)
+{
+    printf("WIFIINITENDCMD\n");
+    single_fire_led_blink_off();
+    esp_rmaker_update(app_get_relay_status());
+}
 
 esp_err_t app_rainmaker_update_relay_state(int chan, int state)
 {
