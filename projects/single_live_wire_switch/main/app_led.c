@@ -66,7 +66,7 @@ void app_led_init()
     gpio_config(&io_conf);
 
     gpio_hold_dis(PROVISION_LED);
-    gpio_set_level(PROVISION_LED, 1);
+    gpio_set_level(PROVISION_LED, 0);
     gpio_hold_en(PROVISION_LED);
 
     const esp_timer_create_args_t device_led_timer_args = {
@@ -74,8 +74,6 @@ void app_led_init()
             .name = "device_led"
     };
     esp_timer_create(&device_led_timer_args, &device_led_timer);
-
-	single_fire_led_blink_on_adc();
 
     return;
 }

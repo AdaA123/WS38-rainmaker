@@ -19,6 +19,7 @@ uint64_t relay_mask = RELAY_ON;
 
 bool app_get_relay_status(void)
 {
+    printf("app_relay_onoff status: %s\n", (relay_mask == RELAY_ON) ? "true" : "false");
    return (relay_mask == RELAY_ON) ? true : false;
 }
 
@@ -40,6 +41,8 @@ void app_relay_onoff(bool relay_onoff)
     gpio_set_level(relay_mask, 1);
     gpio_hold_en(relay_mask);
     esp_timer_start_once(device_relay_timer, RELAY_TIMER_MS*1000);
+
+    printf("wifi app_relay_onoff status: %s\n", (relay_mask == RELAY_ON) ? "true" : "false");
 }
 
 void device_relay_timer_callback(void *args)
@@ -49,6 +52,14 @@ void device_relay_timer_callback(void *args)
     gpio_hold_en(relay_mask);
 
     esp_rmaker_update((relay_mask == RELAY_ON) ? true : false);
+
+    if(relay_mask == RELAY_ON)
+    {
+        app_ccharging_en();
+    }
+    else{
+        app_ccharging_dis();
+    }
 }
 
 void app_relay_init(void)

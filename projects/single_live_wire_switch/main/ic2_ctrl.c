@@ -24,6 +24,20 @@ int Is_ADC_CHECK_OK(void)
     return ADC_CHECK_OK;
 }
 
+void app_ccharging_en(void)
+{
+    gpio_hold_dis(CCHARGING_PIN);
+    gpio_set_level(CCHARGING_PIN, 1);
+    gpio_hold_en(CCHARGING_PIN);
+}
+
+void app_ccharging_dis(void)
+{
+    gpio_hold_dis(CCHARGING_PIN);
+    gpio_set_level(CCHARGING_PIN, 0);
+    gpio_hold_en(CCHARGING_PIN);
+}
+
 static void single_read(void* arg)
 {
     uint32_t adc1_reading_sum = 0;
@@ -52,6 +66,11 @@ static void single_read(void* arg)
         if (2750 < adc1_reading) // 1.95v (0~2.9v)
         {
             printf("ADC check end\n");
+
+            gpio_hold_dis(QUICK_CHARGE_PIN);
+            gpio_set_level(QUICK_CHARGE_PIN, 0);
+            gpio_hold_en(QUICK_CHARGE_PIN);
+
             break;
         }
 
@@ -65,7 +84,10 @@ static void single_read(void* arg)
     }
 #endif
 
-    ADC_CHECK_OK = 1;
+    ADC_CHECK_OK = 1;    
+
+    app_3v3_dis();
+    single_fire_led_blink_on();
 
     do {
         n = GET_ADC_TIMES;
@@ -88,6 +110,7 @@ static void single_read(void* arg)
         {
             if (1 == ic2_cnt)
             {
+                app_3v3_dis();
                 esp_wifi_start();
 	            single_fire_led_blink_off_adc();
             }
@@ -99,6 +122,7 @@ static void single_read(void* arg)
             if (0 == ic2_cnt)
             {
                 esp_wifi_stop();
+                app_3v3_en();
 	            single_fire_led_blink_on_adc();
             }
             ic2_cnt = 3;
@@ -127,12 +151,13 @@ void adc_cheak(void)
     gpio_hold_dis(QUICK_CHARGE_PIN);
     gpio_set_level(QUICK_CHARGE_PIN, 0);
     gpio_hold_en(QUICK_CHARGE_PIN);
-
+#if 1
     xTaskCreate(single_read, "single_read_adc_task", 2*1024, NULL, 5, NULL);
 
     while(0 == ADC_CHECK_OK)
     {
         vTaskDelay(pdMS_TO_TICKS(1500));
     }
+#endif
 }
 

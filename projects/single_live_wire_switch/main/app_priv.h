@@ -19,6 +19,8 @@
 #include "ic2_ctrl.h"
 #include "app_relay.h"
 
+#define APP_3V3_EN_PIN GPIO_NUM_2
+
 enum {
 	SWITCH_CHANNEL_1,
 	SWITCH_CHANNEL_2,
@@ -39,3 +41,5 @@ void app_wifi_init_end(void);
 
 void esp_rmaker_update(bool dat);
 
+void app_3v3_en(void);
+void app_3v3_dis(void);

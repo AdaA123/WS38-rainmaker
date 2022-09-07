@@ -1,7 +1,0 @@
-source "/home/adaa/esp/test3/components/efuse/Kconfig"
-source "/home/adaa/esp/test3/components/esp32c3/Kconfig"
-source "/home/adaa/esp/test3/components/esp_common/Kconfig"
-source "/home/adaa/esp/test3/components/esp_system/Kconfig"
-source "/home/adaa/esp/test3/components/log/Kconfig"
-source "/home/adaa/esp/test3/components/newlib/Kconfig"
-source "/home/adaa/esp/test3/components/spi_flash/Kconfig"

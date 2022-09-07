@@ -33,33 +33,40 @@
 
 static const char *TAG = "app_main";
 
-__uint8_t s_wifi_init_end_flag = 0 ;
-
-static esp_pm_lock_handle_t s_pm_cpu_lock = NULL;
-
-static uint8_t lock_status = 0;
-
-void stop_power_save(void)
-{
-    if (s_pm_cpu_lock != NULL && lock_status == 0)
-    {
-        lock_status = 1;
-        ESP_ERROR_CHECK(esp_pm_lock_acquire(s_pm_cpu_lock));
-    }
+void app_3v3_en(void)
+{    
+    gpio_hold_dis(APP_3V3_EN_PIN);
+    gpio_set_level(APP_3V3_EN_PIN, 1);
+    gpio_hold_en(APP_3V3_EN_PIN);    
 }
 
-void start_power_save(void)
-{    
-    if (s_pm_cpu_lock != NULL&& lock_status == 1)
-    {
-        lock_status = 0;
-        ESP_ERROR_CHECK(esp_pm_lock_release(s_pm_cpu_lock));
-        printf("start_power_save\n");
-    }
+void app_3v3_dis(void)
+{
+    gpio_hold_dis(APP_3V3_EN_PIN);
+    gpio_set_level(APP_3V3_EN_PIN, 0);
+    gpio_hold_en(APP_3V3_EN_PIN);    
+}
+
+void app_3v3_init()
+{
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << APP_3V3_EN_PIN);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
+
+    gpio_hold_dis(APP_3V3_EN_PIN);
+    gpio_set_level(APP_3V3_EN_PIN, 1);
+    gpio_hold_en(APP_3V3_EN_PIN);    
+
+    return ;
 }
 
 int app_driver_init(void)   
 {
+    app_3v3_init();
 	app_led_init();
 	app_button_init();
     //Bri_Ctrl_Init();
@@ -90,10 +97,6 @@ int app_pm_config(void)
 
    ESP_ERROR_CHECK (esp_pm_configure(&pm_config));
 
-   if (esp_pm_lock_create(ESP_PM_APB_FREQ_MAX , 0, "l_cpu", &s_pm_cpu_lock) != ESP_OK) {
-     			 ESP_LOGE(TAG, "esp pm lock create failed");
-                }
-                
    #endif // CONFIG_PM_ENABLE
 
    return ESP_OK;
@@ -164,5 +167,4 @@ void app_main()
         abort();
     }
 
-    s_wifi_init_end_flag = 1;
 }
