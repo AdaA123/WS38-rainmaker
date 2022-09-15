@@ -13,6 +13,8 @@
 #include <esp_timer.h>
 #include <esp_sleep.h>
 #include "driver/gpio.h"
+#include <nvs_flash.h>
+#include <nvs.h>
 
 #include "app_led.h"
 #include "app_button.h"
