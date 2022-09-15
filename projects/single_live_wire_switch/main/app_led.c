@@ -7,6 +7,7 @@
 #include "driver/gpio.h"
 
 #include "app_led.h"
+#include "app_priv.h"
 
 static esp_timer_handle_t device_led_timer = NULL;
 
@@ -34,13 +35,13 @@ static void device_led_timer_callback(void* arg)
 void single_fire_led_blink_on()
 {
     esp_timer_stop(device_led_timer);
-    esp_timer_start_periodic(device_led_timer, 1500 * 1000);  
+    esp_timer_start_periodic(device_led_timer, 1000 * 1000);  
 }
 
 void single_fire_led_blink_on_adc()
 {
     esp_timer_stop(device_led_timer);
-    esp_timer_start_periodic(device_led_timer, 500 * 1000);  
+    esp_timer_start_periodic(device_led_timer, 2000 * 1000);  
 }
 
 void single_fire_led_blink_off_adc()            
@@ -49,10 +50,14 @@ void single_fire_led_blink_off_adc()
     single_fire_led_off();
 }
 
+extern esp_err_t esp_rmaker_reset_user_node_mapping(void);
+
 void single_fire_led_blink_off()            
 {
     esp_timer_stop(device_led_timer);
     single_fire_led_off();
+    esp_rmaker_reset_user_node_mapping();
+    esp_rmaker_update(app_get_relay_status());
 }
 
 void app_led_init()

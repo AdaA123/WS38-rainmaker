@@ -84,8 +84,7 @@ int app_pm_config(void)
    esp_pm_config_esp32_t pm_config = {
 #elif CONFIG_IDF_TARGET_ESP32S2
    esp_pm_config_esp32s2_t pm_config = {
-#elif CONFIG_IDF_TARGET_ESP32C3        
-
+#elif CONFIG_IDF_TARGET_ESP32C3
    esp_pm_config_esp32c3_t pm_config = {
 #endif
            .max_freq_mhz = CONFIG_EXAMPLE_MAX_CPU_FREQ_MHZ,
@@ -96,9 +95,7 @@ int app_pm_config(void)
    };
 
    ESP_ERROR_CHECK (esp_pm_configure(&pm_config));
-
    #endif // CONFIG_PM_ENABLE
-
    return ESP_OK;
 }
 
@@ -152,7 +149,7 @@ void app_main()
     app_wifi_prov_config_t pro_config = { 0 };
     fill_mfg_info(pro_config.mfg);
     pro_config.broadcast_prefix = "Nova";
-    pro_config.prov_timeout = 1;
+    pro_config.prov_timeout = 2;
 	pro_config.enable_prov = 1;
     
     /* Start the Wi-Fi.
@@ -166,5 +163,11 @@ void app_main()
         vTaskDelay(5000/portTICK_PERIOD_MS);
         abort();
     }
+
+    esp_rmaker_system_serv_config_t serv_config = {
+        .flags = SYSTEM_SERV_FLAGS_ALL,
+        .reset_reboot_seconds = 2,
+    };
+    esp_rmaker_system_service_enable(&serv_config);
 
 }

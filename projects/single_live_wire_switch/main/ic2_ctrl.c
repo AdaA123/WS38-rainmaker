@@ -17,6 +17,10 @@
 
 #define GET_ADC_DELAY 2*60 //s
 
+#define CAPA_VOLT_BOOT_ADC      2924 //2.8v(2.9v) --- 3.8v
+#define CAPA_VOLT_DIS_NET_ADC   2340 //1.6v(2.9v) --- 3.0v
+#define CAPA_VOLT_EN_NET_ADC     2559 //1.75v(2.9v) --- 3.3v
+
 static int ADC_CHECK_OK = 0;
 
 int Is_ADC_CHECK_OK(void)
@@ -42,7 +46,6 @@ static void single_read(void* arg)
 {
     uint32_t adc1_reading_sum = 0;
     uint16_t adc1_reading;
-    uint16_t adc_delay_timer_s = GET_ADC_DELAY;
     int n, ic2_cnt = 0;
 
     adc1_config_width(ADC_WIDTH_BIT_DEFAULT);
@@ -56,14 +59,14 @@ static void single_read(void* arg)
         while (n--) 
         {
             adc1_reading_sum += adc1_get_raw(ADC1_CHANNEL_3);
-            vTaskDelay(pdMS_TO_TICKS(20));
+            vTaskDelay(pdMS_TO_TICKS(1));
         }
 
         adc1_reading = adc1_reading_sum / GET_ADC_TIMES;
         ESP_LOGI("single_read ADC1_CH3", "%d", adc1_reading);
         adc1_reading_sum = 0;
 
-        if (2750 < adc1_reading) // 1.95v (0~2.9v)
+        if (CAPA_VOLT_BOOT_ADC < adc1_reading) // 1.95v (0~2.9v)
         {
             printf("ADC check end\n");
 
@@ -102,11 +105,11 @@ static void single_read(void* arg)
         ESP_LOGI("single_read ADC1_CH3", "%d", adc1_reading);
         adc1_reading_sum = 0;
 
-        if (2189 < adc1_reading && 0 == ic2_cnt) // 1.55v (0~2.9v)
+        if (CAPA_VOLT_DIS_NET_ADC < adc1_reading && 0 == ic2_cnt) 
         {
             vTaskDelay(pdMS_TO_TICKS(GET_ADC_DELAY * 1000));
         } else 
-        if (2330 < adc1_reading) // 1.65v (0~2.9v)
+        if (CAPA_VOLT_EN_NET_ADC < adc1_reading) // 1.65v (0~2.9v)
         {
             if (1 == ic2_cnt)
             {
@@ -117,7 +120,7 @@ static void single_read(void* arg)
             ic2_cnt--;
             vTaskDelay(pdMS_TO_TICKS(30 * 1000));
         } else 
-        if (2189 > adc1_reading)
+        if (CAPA_VOLT_DIS_NET_ADC > adc1_reading)
         {
             if (0 == ic2_cnt)
             {
@@ -152,7 +155,7 @@ void adc_cheak(void)
     gpio_set_level(QUICK_CHARGE_PIN, 0);
     gpio_hold_en(QUICK_CHARGE_PIN);
 #if 1
-    xTaskCreate(single_read, "single_read_adc_task", 2*1024, NULL, 5, NULL);
+    xTaskCreate(single_read, "single_read_adc_task", 4*1024, NULL, 5, NULL);
 
     while(0 == ADC_CHECK_OK)
     {
