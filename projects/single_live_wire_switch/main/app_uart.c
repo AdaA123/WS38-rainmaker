@@ -184,22 +184,19 @@ void uart_deal_with(uint8_t* str, uint8_t num)
         if (ReceivedHead1 == str[i] && ReceivedHead2 == str[i+1])
         {
             printf("str[i+2] = %x \tstr[i+3] = %x\n", str[i + 2], str[i + 2]);
+            SendBuff[3] = str[i + 2];
+            SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];  
+
+            uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
+            uart_wait_tx_done(EX_UART_NUM, 100);
+
             switch(str[i + 2])
             {
                 case OnOffCMD:
                     if (str[i+3] != Get_Bri_Status())
                     {
                         Set_Bri_Status(str[i+3]);
-                                            
-                        SendBuff[3] = str[i + 2];
-                        SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];  
 
-                        stop_power_save();
-                        uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
-                        uart_wait_tx_done(EX_UART_NUM, 100);
-                        start_power_save();
-
-                        printf("start_power_save\n");
                         ucRxTaskHandle_Flag = 0;
 
                         if (s_wifi_init_end_flag)
@@ -209,8 +206,6 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     }
                     else
                     {
-                        start_power_save();
-                        printf("start_power_save\n");
                         printf("Bri_Status same\n");
                     }
                     printf("Bri_Status %d\n", str[i+3]);
@@ -219,15 +214,6 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                 case BriNowCMD:
                     if (str[i+3] != Get_Btight_Pct())
                     {
-                        SendBuff[3] = str[i + 2];
-                        SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];  
-
-                        stop_power_save();
-                        uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
-                        uart_wait_tx_done(EX_UART_NUM, 100);
-                        start_power_save();
-
-                        printf("start_power_save\n");
                         ucRxTaskHandle_Flag = 0;
 
                         if (str[i+3] <= 100) 
@@ -242,32 +228,22 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     }
                     else
                     {
-                        start_power_save();
-                        printf("start_power_save\n");
                         printf("Btight_Pct same\n");
                     }
                     printf("\t\t\t\tBtight_Pct %d\n", str[i+3]);
                 break;
 
                 case WIFIRESETCMD:
-                    SendBuff[3] = str[i + 2];
-                    SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];  
-
-                    stop_power_save();
-                    uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
-                    uart_wait_tx_done(EX_UART_NUM, 100);
-                    start_power_save();
-
-                    printf("start_power_save\n");
                     ucRxTaskHandle_Flag = 0;
 
                     esp_rmaker_factory_reset(0, REBOOT_DELAY);
                 break;
 
                 default:
+                    i -= 3;
                 break;
             }
-            i += 4;
+            i += 5;
         }
         else
         {
@@ -275,6 +251,7 @@ void uart_deal_with(uint8_t* str, uint8_t num)
         }
     } 
 
+    start_power_save();
 }
 
 /*-----------------------------------------------------------------------------
