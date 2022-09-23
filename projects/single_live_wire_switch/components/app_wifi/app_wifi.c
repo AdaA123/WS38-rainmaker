@@ -243,6 +243,8 @@ esp_err_t app_wifi_start(app_wifi_prov_config_t* config)
         .scheme_event_handler = WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM
     };
 
+    provisioning_indicator_start();
+
     wifi_prov_mgr_init(mgr_config);
     bool provisioned = false;
     wifi_prov_mgr_is_provisioned(&provisioned);

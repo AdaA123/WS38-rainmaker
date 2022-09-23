@@ -33,44 +33,11 @@
 
 static const char *TAG = "app_main";
 
-void app_3v3_en(void)
-{    
-    gpio_hold_dis(APP_3V3_EN_PIN);
-    gpio_set_level(APP_3V3_EN_PIN, 1);
-    gpio_hold_en(APP_3V3_EN_PIN);    
-}
-
-void app_3v3_dis(void)
+int app_driver_init(void)
 {
-    gpio_hold_dis(APP_3V3_EN_PIN);
-    gpio_set_level(APP_3V3_EN_PIN, 0);
-    gpio_hold_en(APP_3V3_EN_PIN);    
-}
-
-void app_3v3_init()
-{
-    gpio_config_t io_conf;
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_INPUT_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << APP_3V3_EN_PIN);
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 0;
-    gpio_config(&io_conf);
-
-    gpio_hold_dis(APP_3V3_EN_PIN);
-    gpio_set_level(APP_3V3_EN_PIN, 1);
-    gpio_hold_en(APP_3V3_EN_PIN);    
-
-    return ;
-}
-
-int app_driver_init(void)   
-{
-    app_3v3_init();
 	app_led_init();
+	app_relay_init();
 	app_button_init();
-    //Bri_Ctrl_Init();
-    app_relay_init();
 	return ESP_OK;
 }
 
@@ -133,10 +100,8 @@ void app_main()
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK( err );
-	app_driver_init();
 	app_pm_config();
-    adc_cheak();
-
+	app_driver_init();
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()
      */
     app_wifi_init();
@@ -149,7 +114,7 @@ void app_main()
     app_wifi_prov_config_t pro_config = { 0 };
     fill_mfg_info(pro_config.mfg);
     pro_config.broadcast_prefix = "Nova";
-    pro_config.prov_timeout = 2;
+    pro_config.prov_timeout = 2;  //配网等待时间
 	pro_config.enable_prov = 1;
     
     /* Start the Wi-Fi.
@@ -163,11 +128,4 @@ void app_main()
         vTaskDelay(5000/portTICK_PERIOD_MS);
         abort();
     }
-
-    esp_rmaker_system_serv_config_t serv_config = {
-        .flags = SYSTEM_SERV_FLAGS_ALL,
-        .reset_reboot_seconds = 2,
-    };
-    esp_rmaker_system_service_enable(&serv_config);
-
 }

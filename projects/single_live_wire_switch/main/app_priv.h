@@ -8,20 +8,18 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <esp_log.h>
 #include <esp_err.h>
 #include <esp_timer.h>
 #include <esp_sleep.h>
 #include "driver/gpio.h"
-#include <nvs_flash.h>
-#include <nvs.h>
 
 #include "app_led.h"
-#include "app_button.h"
-#include "ic2_ctrl.h"
 #include "app_relay.h"
-
-#define APP_3V3_EN_PIN GPIO_NUM_2
+#include "app_button.h"
 
 enum {
 	SWITCH_CHANNEL_1,
@@ -30,18 +28,10 @@ enum {
 	SWITCH_CHANNEL_MAX,
 	SWITCH_CHANNEL_ALL,
 };
-
 int app_rainmaker_init(void);
 void app_event_register_init(void);
 int wifi_is_connected(void);
 esp_err_t app_rainmaker_update_relay_state(int chan, int state);
 void app_rainmaker_reconnect_timer_start(void);
 void app_rainmaker_reconnect_timer_stop(void);
-void start_power_save(void);
-void stop_power_save(void);
-void app_wifi_init_end(void);
 
-void esp_rmaker_update(bool dat);
-
-void app_3v3_en(void);
-void app_3v3_dis(void);

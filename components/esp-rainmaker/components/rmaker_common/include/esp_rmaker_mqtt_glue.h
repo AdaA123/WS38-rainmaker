@@ -52,7 +52,7 @@ typedef esp_rmaker_mqtt_conn_params_t *(*esp_rmaker_mqtt_get_conn_params_t)(void
  * @param[in] priv_data The private data passed during subscription
  */
 typedef void (*esp_rmaker_mqtt_subscribe_cb_t)(const char *topic, void *payload, size_t payload_len, void *priv_data);
-   
+
 /** MQTT Init function prototype
  *
  * @param[in] conn_params The MQTT connection parameters. If NULL is passed, it should internally use the
@@ -62,6 +62,12 @@ typedef void (*esp_rmaker_mqtt_subscribe_cb_t)(const char *topic, void *payload,
  * @return error in case of any error.
  */
 typedef esp_err_t (*esp_rmaker_mqtt_init_t)(esp_rmaker_mqtt_conn_params_t *conn_params);
+
+/** MQTT Deinit function prototype
+ *
+ * Call this function after MQTT has disconnected.
+ */
+typedef void (*esp_rmaker_mqtt_deinit_t)(void);
 
 /** MQTT Connect function prototype
  *
@@ -94,7 +100,6 @@ typedef esp_err_t (*esp_rmaker_mqtt_reconnect_t)(void);
 typedef int (*esp_rmaker_mqtt_is_connected_t)(void);
 
 #endif
-
 
 /** MQTT Publish Message function prototype
  *
@@ -138,6 +143,8 @@ typedef struct {
     esp_rmaker_mqtt_get_conn_params_t get_conn_params;
     /** Pointer to MQTT Init function. */
     esp_rmaker_mqtt_init_t init;
+    /** Pointer to MQTT Deinit function. */
+    esp_rmaker_mqtt_deinit_t deinit;
     /** Pointer to MQTT Connect function. */
     esp_rmaker_mqtt_connect_t connect;
     /** Pointer to MQTQ Disconnect function */
@@ -161,6 +168,12 @@ typedef struct {
  */
 esp_err_t esp_rmaker_mqtt_glue_setup(esp_rmaker_mqtt_config_t *mqtt_config);
 
+/* Get the ESP AWS PPI String
+ *
+ * @return pointer to a NULL terminated PPI string on success.
+ * @return NULL in case of any error.
+ */
+const char *esp_get_aws_ppi(void);
 #ifdef __cplusplus
 }
 #endif

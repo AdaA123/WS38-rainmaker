@@ -26,12 +26,18 @@
 #include "esp_diagnostics_metrics.h"
 #include "esp_diagnostics_variables.h"
 
-#if ESP_IDF_VERSION_MAJOR >= 4 && ESP_IDF_VERSION_MINOR >= 3
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+#include "esp_chip_info.h"
+#endif
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 3, 0)
 #include <esp_rom_crc.h>
 #define ESP_CRC32_LE(crc, buf, len) esp_rom_crc32_le(crc, buf, len)
+#define TASK_GET_NAME(handle) pcTaskGetName(handle)
 #else
 #include <esp_crc.h>
 #define ESP_CRC32_LE(crc, buf, len) esp_crc32_le(crc, buf, len)
+#define TASK_GET_NAME(handle) pcTaskGetTaskName(handle)
 #endif
 
 #define TASK_SNAP_TAG       "task_snap"
@@ -44,10 +50,23 @@
 #define BT_DEPTH_FMT_8      BT_DEPTH_FMT_4 BT_DEPTH_FMT_4
 #define BT_DEPTH_FMT_16     BT_DEPTH_FMT_8 BT_DEPTH_FMT_8
 
-#if ESP_IDF_VERSION_MAJOR >= 4 && ESP_IDF_VERSION_MINOR >= 3
-#define TASK_GET_NAME(handle) pcTaskGetName(handle)
+/* From esp-idf v4.4 onwards
+ * - portENTER_CRITICAL_NESTED() and portEXIT_CRITICAL_NESTED() macros are deprecated
+ * - freertos/task_snapshot.h has been removed from freertos/task.h
+ */
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+#include "freertos/task_snapshot.h"
+#define DISABLE_INTERRUPTS portSET_INTERRUPT_MASK_FROM_ISR
+#define ENABLE_INTERRUPTS  portCLEAR_INTERRUPT_MASK_FROM_ISR
 #else
-#define TASK_GET_NAME(handle) pcTaskGetTaskName(handle)
+#define DISABLE_INTERRUPTS portENTER_CRITICAL_NESTED
+#define ENABLE_INTERRUPTS  portEXIT_CRITICAL_NESTED
+#endif
+
+/* ESP-IDF v5.0 moved esp_cpu_process_stack_pc() is moved to esp_cpu_utils.h
+ */
+#if (CONFIG_IDF_TARGET_ARCH_XTENSA && ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+#include <esp_cpu_utils.h>
 #endif
 
 esp_err_t esp_diag_device_info_get(esp_diag_device_info_t *device_info)
@@ -64,10 +83,8 @@ esp_err_t esp_diag_device_info_get(esp_diag_device_info_t *device_info)
     device_info->chip_rev = chip.revision;
     device_info->reset_reason = esp_reset_reason();
     app_desc = esp_ota_get_app_description();
-    strncpy(device_info->app_version, app_desc->version, sizeof(device_info->app_version) - 1);
-    device_info->app_version[sizeof(device_info->app_version) - 1] = 0;
-    strncpy(device_info->project_name, app_desc->project_name, sizeof(device_info->project_name) - 1);
-    device_info->project_name[sizeof(device_info->project_name) - 1] = 0;
+    strlcpy(device_info->app_version, app_desc->version, sizeof(device_info->app_version));
+    strlcpy(device_info->project_name, app_desc->project_name, sizeof(device_info->project_name));
     esp_ota_get_app_elf_sha256(device_info->app_elf_sha256, sizeof(device_info->app_elf_sha256));
     return ESP_OK;
 }
@@ -115,7 +132,7 @@ uint32_t esp_diag_task_snapshot_get(esp_diag_task_info_t *tasks, size_t size)
     if (!tasks || !size) {
         return 0;
     }
-    unsigned irq_state = portENTER_CRITICAL_NESTED();
+    unsigned irq_state = DISABLE_INTERRUPTS();
 #if !CONFIG_FREERTOS_UNICORE
     int other_cpu = xPortGetCoreID() ? 0 : 1;
     esp_cpu_stall(other_cpu);
@@ -137,7 +154,7 @@ uint32_t esp_diag_task_snapshot_get(esp_diag_task_info_t *tasks, size_t size)
         TaskHandle_t handle = (TaskHandle_t)snapshots[i].pxTCB;
         char *name = TASK_GET_NAME(handle);
         if (name && *name) {
-            strncpy(tasks[i].name, name, strlen(name));
+            strlcpy(tasks[i].name, name, sizeof(tasks[i].name));
         }
         tasks[i].state = eTaskGetState(handle);
         tasks[i].high_watermark = uxTaskGetStackHighWaterMark(handle);
@@ -150,7 +167,7 @@ uint32_t esp_diag_task_snapshot_get(esp_diag_task_info_t *tasks, size_t size)
 #if !CONFIG_FREERTOS_UNICORE
     esp_cpu_unstall(other_cpu);
 #endif
-    portEXIT_CRITICAL_NESTED(irq_state);
+    ENABLE_INTERRUPTS(irq_state);
     return i;
 }
 

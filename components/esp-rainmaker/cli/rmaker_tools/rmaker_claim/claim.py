@@ -60,6 +60,8 @@ BLOCKS = [
     ("BLOCK_SYS_DATA", 2, 0x3f41a05c, None, 21)
 ]
 
+VALID_PLATFORMS = ['esp32-c3', 'esp32-s2', 'esp32-s3', 'esp32']
+
 
 def flash_nvs_partition_bin(port, bin_to_flash, address):
     """
@@ -99,21 +101,47 @@ def get_node_platform_and_mac(port):
     """
     if not port:
         sys.exit("<port> argument not provided. Cannot read MAC address from node.")
-    sys.stdout = mystdout = StringIO()
     command = ['--port', port, 'chip_id']
     log.info("Running esptool command to get node\
         platform and mac from device")
-    esptool.main(command)
-    sys.stdout = sys.__stdout__
+
+    try:
+        sys.stdout = mystdout = StringIO()
+        esptool.main(command)
+        sys.stdout = sys.__stdout__
+
+    except esptool.FatalError:
+        sys.stdout = sys.__stdout__
+        log.debug(sys.stdout)
+        log.error('Platform and MAC could not be autodetected. Please provide by using --platform and --mac argument of claim command.')
+        sys.exit(0)
+
+    node_platform = None
+
     # Finding chip type from output.
-    node_platform = next(filter(lambda line: 'Detecting chip type' in line,
+    node_platform_line = next(filter(lambda line: 'Chip is' in line,
                                 mystdout.getvalue().splitlines()))
+    for valid_platform in VALID_PLATFORMS:
+        node_platform_list = node_platform_line.lower().split(valid_platform)
+        if len(node_platform_list) != 1:
+            # platform name found
+            node_platform = valid_platform
+            break
+
     # Finds the first occurence of the line
     # with the MAC Address from the output.
     mac = next(filter(lambda line: 'MAC: ' in line,
                       mystdout.getvalue().splitlines()))
     mac_addr = mac.split('MAC: ')[1].replace(':', '').upper()
-    platform = node_platform.split()[-1].lower().replace('-', '')
+    try:
+        platform = node_platform.split()[-1].lower().replace('-', '')
+    except AttributeError as err:
+        log.error('Platform autodetected is not valid. Valid platforms are {}'
+                  'Please provide by using --platform and --mac argument of '
+                  'claim command.'.format(VALID_PLATFORMS)
+                  )
+        sys.exit(1)
+
     print("Node platform detected is: ", platform)
     print("MAC address is: ", mac_addr)
     log.debug("MAC address received: " + mac_addr)
@@ -302,8 +330,6 @@ def set_claim_initiate_data(mac_addr, node_platform):
 
 def claim_verify(claim_verify_data, header):
     claim_verify_url = CLAIM_VERIFY_URL
-    user_whitelist_err_msg = ('User is not allowed to claim esp32 device.'
-                              ' please contact administrator')
     claim_verify_enc_data = str(claim_verify_data).replace(
         "'", '"')
     log.debug("Claim Verify POST Request: url: " + claim_verify_url +
@@ -314,19 +340,8 @@ def claim_verify(claim_verify_data, header):
                                             headers=header,
                                             verify=CERT_FILE)
     if claim_verify_response.status_code != 200:
-        claim_verify_response_json = json.loads(
-            claim_verify_response.text.lower())
-        if (claim_verify_response_json["description"] in
-                user_whitelist_err_msg):
-            log.error('Claim verification failed.\n' +
-                        claim_verify_response.text)
-            print('\nYour account isn\'t whitelisted for ESP32.'
-                    ' Please send your registered email address to'
-                    ' esp-rainmaker-admin@espressif.com for whitelisting'
-                    )
-        else:
-            log.error('Claim verification failed.\n' +
-                        claim_verify_response.text)
+        log.error('Claim verification failed.\n' +
+                    claim_verify_response.text)
         exit(0)
     print("Claim verify done")
     log.debug("Claim Verify POST Response: status code: " +

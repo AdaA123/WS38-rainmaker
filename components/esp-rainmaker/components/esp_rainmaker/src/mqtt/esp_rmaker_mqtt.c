@@ -63,6 +63,7 @@ esp_err_t esp_rmaker_mqtt_disconnect(void)
     ESP_LOGW(TAG, "esp_rmaker_mqtt_disconnect not registered");
     return ESP_OK;
 }
+
 esp_err_t esp_rmaker_mqtt_subscribe(const char *topic, esp_rmaker_mqtt_subscribe_cb_t cb, uint8_t qos, void *priv_data)
 {
     if (g_mqtt_config.subscribe) {

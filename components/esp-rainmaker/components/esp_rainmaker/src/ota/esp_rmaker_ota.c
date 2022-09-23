@@ -21,10 +21,28 @@
 #include <esp_https_ota.h>
 #include <esp_wifi_types.h>
 #include <esp_wifi.h>
+#if CONFIG_BT_ENABLED
+#include <esp_bt.h>
+#endif /* CONFIG_BT_ENABLED */
 
 #include <esp_rmaker_utils.h>
 #include "esp_rmaker_ota_internal.h"
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+// Features supported in 4.4+
+
+#ifdef CONFIG_ESP_RMAKER_USE_CERT_BUNDLE
+#define ESP_RMAKER_USE_CERT_BUNDLE
+#include <esp_crt_bundle.h>
+#endif
+
+#else
+
+#ifdef CONFIG_ESP_RMAKER_USE_CERT_BUNDLE
+#warning "Certificate Bundle not supported below IDF v4.4. Using provided certificate instead."
+#endif
+
+#endif /* !IDF4.4 */
 static const char *TAG = "esp_rmaker_ota";
 
 #define OTA_REBOOT_TIMER_SEC    10
@@ -44,6 +62,8 @@ char *esp_rmaker_ota_status_to_string(ota_status_t status)
             return "failed";
         case OTA_STATUS_DELAYED:
             return "delayed";
+        case OTA_STATUS_REJECTED:
+            return "rejected";
         default:
             return "invalid";
     }
@@ -105,27 +125,28 @@ static esp_err_t validate_image_header(esp_rmaker_ota_handle_t ota_handle,
         ESP_LOGD(TAG, "Running firmware version: %s", running_app_info.version);
     }
 
-#ifndef CONFIG_ESP_RMAKER_SKIP_VERSION_CHECK
-    if (memcmp(new_app_info->version, running_app_info.version, sizeof(new_app_info->version)) == 0) {
-        ESP_LOGW(TAG, "Current running version is same as the new. We will not continue the update.");
-        esp_rmaker_ota_report_status(ota_handle, OTA_STATUS_FAILED, "Same version received");
-        return ESP_FAIL;
-    }
-#endif
-
 #ifndef CONFIG_ESP_RMAKER_SKIP_PROJECT_NAME_CHECK
     if (memcmp(new_app_info->project_name, running_app_info.project_name, sizeof(new_app_info->project_name)) != 0) {
         ESP_LOGW(TAG, "OTA Image built for Project: %s. Expected: %s",
                 new_app_info->project_name, running_app_info.project_name);
-        esp_rmaker_ota_report_status(ota_handle, OTA_STATUS_FAILED, "Project Name mismatch");
+        esp_rmaker_ota_report_status(ota_handle, OTA_STATUS_REJECTED, "Project Name mismatch");
         return ESP_FAIL;
     }
 #endif
 
+#ifndef CONFIG_ESP_RMAKER_SKIP_VERSION_CHECK
+    if (memcmp(new_app_info->version, running_app_info.version, sizeof(new_app_info->version)) == 0) {
+        ESP_LOGW(TAG, "Current running version is same as the new. We will not continue the update.");
+        esp_rmaker_ota_report_status(ota_handle, OTA_STATUS_REJECTED, "Same version received");
+        return ESP_FAIL;
+    }
+#endif
+
+
     return ESP_OK;
 }
 
-static esp_err_t esp_rmaker_ota_default_cb(esp_rmaker_ota_handle_t ota_handle, esp_rmaker_ota_data_t *ota_data)
+esp_err_t esp_rmaker_ota_default_cb(esp_rmaker_ota_handle_t ota_handle, esp_rmaker_ota_data_t *ota_data)
 {
     if (!ota_data->url) {
         return ESP_FAIL;
@@ -140,10 +161,15 @@ static esp_err_t esp_rmaker_ota_default_cb(esp_rmaker_ota_handle_t ota_handle, e
     esp_err_t ota_finish_err = ESP_OK;
     esp_http_client_config_t config = {
         .url = ota_data->url,
+#ifdef ESP_RMAKER_USE_CERT_BUNDLE
+        .crt_bundle_attach = esp_crt_bundle_attach,
+#else
         .cert_pem = ota_data->server_cert,
+#endif
         .timeout_ms = 5000,
         .buffer_size = DEF_HTTP_RX_BUFFER_SIZE,
-        .buffer_size_tx = buffer_size_tx
+        .buffer_size_tx = buffer_size_tx,
+        .keep_alive_enable = true
     };
 #ifdef CONFIG_ESP_RMAKER_SKIP_COMMON_NAME_CHECK
     config.skip_cert_common_name_check = true;
@@ -159,7 +185,7 @@ static esp_err_t esp_rmaker_ota_default_cb(esp_rmaker_ota_handle_t ota_handle, e
 
     esp_rmaker_ota_report_status(ota_handle, OTA_STATUS_IN_PROGRESS, "Starting OTA Upgrade");
 
-/* Using a warning just to highlight the message */
+    /* Using a warning just to highlight the message */
     ESP_LOGW(TAG, "Starting OTA. This may take time.");
     esp_https_ota_handle_t https_ota_handle = NULL;
     esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
@@ -174,9 +200,15 @@ static esp_err_t esp_rmaker_ota_default_cb(esp_rmaker_ota_handle_t ota_handle, e
  */
     wifi_ps_type_t ps_type;
     esp_wifi_get_ps(&ps_type);
-/* Disable Wi-Fi power save to speed up OTA
- */
+/* Disable Wi-Fi power save to speed up OTA, iff BT is controller is idle/disabled.
+ * Co-ex requirement, device panics otherwise.*/
+#if CONFIG_BT_ENABLED
+    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE) {
+        esp_wifi_set_ps(WIFI_PS_NONE);
+    }
+#else
     esp_wifi_set_ps(WIFI_PS_NONE);
+#endif /* CONFIG_BT_ENABLED */
 
     esp_app_desc_t app_desc;
     err = esp_https_ota_get_img_desc(https_ota_handle, &app_desc);
@@ -211,6 +243,7 @@ static esp_err_t esp_rmaker_ota_default_cb(esp_rmaker_ota_handle_t ota_handle, e
         }
     }
     if (err != ESP_OK) {
+        ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed %s", esp_err_to_name(err));
         char description[40];
         snprintf(description, sizeof(description), "OTA failed: Error %s", esp_err_to_name(err));
         esp_rmaker_ota_report_status(ota_handle, OTA_STATUS_FAILED, description);
@@ -222,8 +255,15 @@ static esp_err_t esp_rmaker_ota_default_cb(esp_rmaker_ota_handle_t ota_handle, e
     } else {
         esp_rmaker_ota_report_status(ota_handle, OTA_STATUS_IN_PROGRESS, "Firmware Image download complete");
     }
+
 ota_end:
+#ifdef CONFIG_BT_ENABLED
+    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE) {
+        esp_wifi_set_ps(ps_type);
+    }
+#else
     esp_wifi_set_ps(ps_type);
+#endif /* CONFIG_BT_ENABLED */
     ota_finish_err = esp_https_ota_finish(https_ota_handle);
     if ((err == ESP_OK) && (ota_finish_err == ESP_OK)) {
         ESP_LOGI(TAG, "OTA upgrade successful. Rebooting in %d seconds...", OTA_REBOOT_TIMER_SEC);
@@ -244,10 +284,16 @@ ota_end:
     return ESP_FAIL;
 }
 
+static const esp_rmaker_ota_config_t ota_default_config = {
+    .server_cert = esp_rmaker_ota_def_cert,
+};
 /* Enable the ESP RainMaker specific OTA */
 esp_err_t esp_rmaker_ota_enable(esp_rmaker_ota_config_t *ota_config, esp_rmaker_ota_type_t type)
 {
-    if (!ota_config || ((type != OTA_USING_PARAMS) && (type != OTA_USING_TOPICS))) {
+    if (ota_config == NULL) {
+        ota_config = (esp_rmaker_ota_config_t *)&ota_default_config;
+    }
+    if ((type != OTA_USING_PARAMS) && (type != OTA_USING_TOPICS)) {
         ESP_LOGE(TAG,"Invalid arguments for esp_rmaker_ota_enable()");
         return ESP_ERR_INVALID_ARG;
     }
@@ -302,4 +348,9 @@ esp_err_t esp_rmaker_ota_enable(esp_rmaker_ota_config_t *ota_config, esp_rmaker_
         ESP_LOGE(TAG, "Failed to enable OTA");
     }
     return err;
+}
+
+esp_err_t esp_rmaker_ota_enable_default(void)
+{
+    return esp_rmaker_ota_enable(NULL, OTA_USING_TOPICS);
 }

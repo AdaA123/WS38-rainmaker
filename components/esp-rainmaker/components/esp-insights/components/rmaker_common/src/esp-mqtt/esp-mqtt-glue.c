@@ -22,10 +22,9 @@
 #include <esp_event.h>
 #include <esp_rmaker_common_events.h>
 #include <esp_rmaker_mqtt_glue.h>
-
 #include <esp_idf_version.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 1, 0)
-// Features supported in 4.1
+// Features supported in 4.1+
 
 #ifdef CONFIG_ESP_RMAKER_MQTT_PORT_443
 #define ESP_RMAKER_MQTT_USE_PORT_443
@@ -34,10 +33,26 @@
 #else
 
 #ifdef CONFIG_ESP_RMAKER_MQTT_PORT_443
-#warning "Port 443 not supported in idf versions below 4.1. Using 8883 instead."
+#warning "Certificate Bundle not supported below IDF v4.4. Using provided certificate instead."
 #endif
 
 #endif /* !IDF4.1 */
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+// Features supported in 4.4+
+
+#ifdef CONFIG_ESP_RMAKER_MQTT_USE_CERT_BUNDLE
+#define ESP_RMAKER_MQTT_USE_CERT_BUNDLE
+#include <esp_crt_bundle.h>
+#endif
+
+#else
+
+#ifdef CONFIG_ESP_RMAKER_MQTT_USE_CERT_BUNDLE
+#warning "Certificate Bundle not supported below 4.4. Using provided certificate instead."
+#endif
+
+#endif /* !IDF4.4 */
 
 static const char *TAG = "esp_mqtt_glue";
 
@@ -111,23 +126,29 @@ esp_err_t esp_mqtt_glue_subscribe(const char *topic, esp_rmaker_mqtt_subscribe_c
     return ESP_FAIL;
 }
 
+static void unsubscribe_helper(esp_mqtt_glue_subscription_t **subscription)
+{
+    if (subscription && *subscription) {
+        if (esp_mqtt_client_unsubscribe(mqtt_data->mqtt_client, (*subscription)->topic) < 0) {
+            ESP_LOGW(TAG, "Could not unsubscribe from topic: %s", (*subscription)->topic);
+        }
+        free((*subscription)->topic);
+        free(*subscription);
+        *subscription = NULL;
+    }
+}
+
 esp_err_t esp_mqtt_glue_unsubscribe(const char *topic)
 {
     if (!mqtt_data || !topic) {
         return ESP_FAIL;
-    }
-    int ret = esp_mqtt_client_unsubscribe(mqtt_data->mqtt_client, topic);
-    if (ret < 0) {
-        ESP_LOGW(TAG, "Could not unsubscribe from topic: %s", topic);
     }
     esp_mqtt_glue_subscription_t **subscriptions = mqtt_data->subscriptions;
     int i;
     for (i = 0; i < MAX_MQTT_SUBSCRIPTIONS; i++) {
         if (subscriptions[i]) {
             if (strncmp(topic, subscriptions[i]->topic, strlen(topic)) == 0) {
-                free(subscriptions[i]->topic);
-                free(subscriptions[i]);
-                subscriptions[i] = NULL;
+                unsubscribe_helper(&subscriptions[i]);
                 return ESP_OK;
             }
         }
@@ -229,6 +250,12 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
             ESP_LOGD(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
             esp_event_post(RMAKER_COMMON_EVENT, RMAKER_MQTT_EVENT_PUBLISHED, &event->msg_id, sizeof(event->msg_id), portMAX_DELAY);
             break;
+#ifdef CONFIG_MQTT_REPORT_DELETED_MESSAGES
+        case MQTT_EVENT_DELETED:
+            ESP_LOGD(TAG, "MQTT_EVENT_DELETED, msg_id=%d", event->msg_id);
+            esp_event_post(RMAKER_COMMON_EVENT, RMAKER_MQTT_EVENT_MSG_DELETED, &event->msg_id, sizeof(event->msg_id), portMAX_DELAY);
+            break;
+#endif /* CONFIG_MQTT_REPORT_DELETED_MESSAGES */
         case MQTT_EVENT_DATA: {
             ESP_LOGD(TAG, "MQTT_EVENT_DATA");
             static esp_mqtt_glue_long_data_t *long_data;
@@ -276,7 +303,7 @@ esp_err_t esp_mqtt_glue_connect(void)
     return ESP_OK;
 }
 
-static void esp_mqtt_glue_unsubscribe_all()
+static void esp_mqtt_glue_unsubscribe_all(void)
 {
     if (!mqtt_data) {
         return;
@@ -284,7 +311,7 @@ static void esp_mqtt_glue_unsubscribe_all()
     int i;
     for (i = 0; i < MAX_MQTT_SUBSCRIPTIONS; i++) {
         if (mqtt_data->subscriptions[i]) {
-            esp_mqtt_glue_unsubscribe(mqtt_data->subscriptions[i]->topic);
+            unsubscribe_helper(&(mqtt_data->subscriptions[i]));
         }
     }
 }
@@ -303,11 +330,53 @@ esp_err_t esp_mqtt_glue_disconnect(void)
     }
     return err;
 }
+
+// #if CONFIG_ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
+// esp_err_t esp_mqtt_glue_reconnect(void)
+// {
+//     if (!mqtt_data) {
+//         return ESP_FAIL;
+//     }
+
+//     esp_err_t err = esp_mqtt_client_reconnect(mqtt_data->mqtt_client);
+//     if (err != ESP_OK) {
+//         ESP_LOGE(TAG, "try connect to MQTT");
+// 		esp_mqtt_client_start(mqtt_data->mqtt_client);
+//     } else {
+//         ESP_LOGI(TAG, "MQTT Reconnecting.");
+//     }
+//     return err;
+// }
+
+// int esp_mqtt_glue_is_connected(void)
+// {
+//     if (!mqtt_data) {
+//         return 0;
+//     }
+//     return esp_mqtt_client_is_connected(mqtt_data->mqtt_client);
+// }
+
+// esp_err_t esp_rmaker_mqtt_reconnect(void)
+// {
+//     return esp_mqtt_glue_reconnect();
+// }
+
+// int esp_rmaker_mqtt_is_connected(void)
+// {
+//     return esp_mqtt_glue_is_connected();
+// }
+
+// #endif
+
 #ifdef ESP_RMAKER_MQTT_USE_PORT_443
 static const char *alpn_protocols[] = { "x-amzn-mqtt-ca", NULL };
 #endif /* ESP_RMAKER_MQTT_USE_PORT_443 */
 esp_err_t esp_mqtt_glue_init(esp_rmaker_mqtt_conn_params_t *conn_params)
 {
+#ifdef CONFIG_ESP_RMAKER_MQTT_SEND_USERNAME
+    const char *username = esp_get_aws_ppi();
+    ESP_LOGI(TAG, "AWS PPI: %s", username);
+#endif
     if (mqtt_data) {
         ESP_LOGE(TAG, "MQTT already initialized");
         return ESP_OK;
@@ -331,10 +400,17 @@ esp_err_t esp_mqtt_glue_init(esp_rmaker_mqtt_conn_params_t *conn_params)
 #else
         .port = 8883,
 #endif /* !ESP_RMAKER_MQTT_USE_PORT_443 */
+#ifdef ESP_RMAKER_MQTT_USE_CERT_BUNDLE
+        .crt_bundle_attach = esp_crt_bundle_attach,
+#else
         .cert_pem = (const char *)conn_params->server_cert,
+#endif
         .client_cert_pem = (const char *)conn_params->client_cert,
         .client_key_pem = (const char *)conn_params->client_key,
         .client_id = (const char *)conn_params->client_id,
+        // #if CONFIG_ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
+		// .disable_auto_reconnect = true,
+        // #endif
         .keepalive = 120,
         .event_handle = mqtt_event_handler,
         .transport = MQTT_TRANSPORT_OVER_SSL,
@@ -342,17 +418,29 @@ esp_err_t esp_mqtt_glue_init(esp_rmaker_mqtt_conn_params_t *conn_params)
         .disable_clean_session = 1,
 #endif /* CONFIG_ESP_RMAKER_MQTT_PERSISTENT_SESSION */
 #ifdef CONFIG_ESP_RMAKER_MQTT_SEND_USERNAME
-#define RMAKER_MQTT_USERNAME    CONFIG_ESP_RMAKER_MQTT_USERNAME
-        .username = RMAKER_MQTT_USERNAME,
+        .username = username,
 #endif
     };
     mqtt_data->mqtt_client = esp_mqtt_client_init(&mqtt_client_cfg);
     return ESP_OK;
 }
 
+void esp_mqtt_glue_deinit(void)
+{
+    esp_mqtt_glue_unsubscribe_all();
+    if (mqtt_data && mqtt_data->mqtt_client) {
+        esp_mqtt_client_destroy(mqtt_data->mqtt_client);
+    }
+    if (mqtt_data) {
+        free(mqtt_data);
+        mqtt_data = NULL;
+    }
+}
+
 esp_err_t esp_rmaker_mqtt_glue_setup(esp_rmaker_mqtt_config_t *mqtt_config)
 {
     mqtt_config->init           = esp_mqtt_glue_init;
+    mqtt_config->deinit         = esp_mqtt_glue_deinit;
     mqtt_config->connect        = esp_mqtt_glue_connect;
     mqtt_config->disconnect     = esp_mqtt_glue_disconnect;
     mqtt_config->publish        = esp_mqtt_glue_publish;

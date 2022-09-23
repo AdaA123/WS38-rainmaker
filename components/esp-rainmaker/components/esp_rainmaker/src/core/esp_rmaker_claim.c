@@ -12,8 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <mbedtls/version.h>
+/* Keep forward-compatibility with Mbed TLS 3.x */
+#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
+#define MBEDTLS_2_X_COMPAT
+#else /* !(MBEDTLS_VERSION_NUMBER < 0x03000000) */
+/* Macro wrapper for struct's private members */
+#ifndef MBEDTLS_ALLOW_PRIVATE_ACCESS
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+#endif /* MBEDTLS_ALLOW_PRIVATE_ACCESS */
+#endif /* !(MBEDTLS_VERSION_NUMBER < 0x03000000) */
 
-#include "mbedtls/config.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/rsa.h"
@@ -44,6 +53,22 @@
 #include "esp_rmaker_internal.h"
 #include "esp_rmaker_client_data.h"
 #include "esp_rmaker_claim.h"
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+// Features supported in 4.4+
+
+#ifdef CONFIG_ESP_RMAKER_USE_CERT_BUNDLE
+#define ESP_RMAKER_USE_CERT_BUNDLE
+#include <esp_crt_bundle.h>
+#endif
+
+#else
+
+#ifdef CONFIG_ESP_RMAKER_USE_CERT_BUNDLE
+#warning "Certificate Bundle not supported below IDF v4.4. Using provided certificate instead."
+#endif
+
+#endif /* !IDF4.4 */
 
 static const char *TAG = "esp_claim";
 
@@ -360,7 +385,11 @@ static esp_err_t esp_rmaker_claim_perform_common(esp_rmaker_claim_data_t *claim_
         .url = url,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .buffer_size = 1024,
+#ifdef ESP_RMAKER_USE_CERT_BUNDLE
+        .crt_bundle_attach = esp_crt_bundle_attach,
+#else
         .cert_pem = (const char *)claim_service_server_root_ca_pem_start,
+#endif
         .skip_cert_common_name_check = false
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -796,7 +825,12 @@ esp_err_t __esp_rmaker_claim_init(esp_rmaker_claim_data_t *claim_data)
     if (key) {
         mbedtls_pk_free(&claim_data->key);
         mbedtls_pk_init(&claim_data->key);
-        if (mbedtls_pk_parse_key(&claim_data->key, (uint8_t *)key, strlen(key) + 1, NULL, 0) == 0) {
+#ifdef MBEDTLS_2_X_COMPAT
+        int ret = mbedtls_pk_parse_key(&claim_data->key, (uint8_t *)key, strlen(key) + 1, NULL, 0);
+#else
+        int ret = mbedtls_pk_parse_key(&claim_data->key, (uint8_t *)key, strlen(key) + 1, NULL, 0, mbedtls_ctr_drbg_random, NULL);
+#endif
+        if (ret == 0) {
             ESP_LOGI(TAG, "Private key already exists. No need to re-initialise it.");
             claim_data->state = RMAKER_CLAIM_STATE_PK_GENERATED;
         }

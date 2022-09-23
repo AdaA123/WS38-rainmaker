@@ -52,6 +52,8 @@ static const char *cb_srcs[ESP_RMAKER_REQ_SRC_MAX] = {
     [ESP_RMAKER_REQ_SRC_INIT] = "Init",
     [ESP_RMAKER_REQ_SRC_CLOUD] = "Cloud",
     [ESP_RMAKER_REQ_SRC_SCHEDULE] = "Schedule",
+    [ESP_RMAKER_REQ_SRC_SCENE_ACTIVATE] = "Scene Activate",
+    [ESP_RMAKER_REQ_SRC_SCENE_DEACTIVATE] = "Scene Deactivate",
     [ESP_RMAKER_REQ_SRC_LOCAL] = "Local",
 };
 
@@ -258,8 +260,6 @@ static esp_err_t esp_rmaker_report_param_internal(uint8_t flags)
     return err;
 }
 
-extern void app_wifi_init_end();
-
 esp_err_t esp_rmaker_report_node_state(void)
 {
     esp_err_t err = esp_rmaker_allocate_and_populate_params(0, false);
@@ -271,7 +271,6 @@ esp_err_t esp_rmaker_report_node_state(void)
             snprintf(publish_topic, sizeof(publish_topic), "node/%s/%s",
                     esp_rmaker_get_node_id(), NODE_PARAMS_LOCAL_INIT_TOPIC_SUFFIX);
             ESP_LOGI(TAG, "Reporting params (init): %s", node_params_buf);
-            app_wifi_init_end();
             if (esp_rmaker_params_mqtt_init_done) {
                 esp_rmaker_mqtt_publish(publish_topic, node_params_buf, strlen(node_params_buf), RMAKER_MQTT_QOS1, NULL);
             } else {
@@ -358,7 +357,19 @@ static esp_err_t esp_rmaker_device_set_params(_esp_rmaker_device_t *device, jpar
              * of calling the registered callback.
              */
             if (param->type && (strcmp(param->type, ESP_RMAKER_PARAM_NAME) == 0)) {
+#ifdef CONFIG_RMAKER_NAME_PARAM_CB
+                if (device->write_cb) {
+                    esp_rmaker_write_ctx_t ctx = {
+                        .src = src,
+                    };
+                    device->write_cb((esp_rmaker_device_t *)device, (esp_rmaker_param_t *)param,
+                                new_val, device->priv_data, &ctx);
+                } else {
+                    esp_rmaker_param_update_and_report((esp_rmaker_param_t *)param, new_val);
+                }
+#else
                 esp_rmaker_param_update_and_report((esp_rmaker_param_t *)param, new_val);
+#endif
             } else if (device->write_cb) {
                 esp_rmaker_write_ctx_t ctx = {
                     .src = src,
@@ -704,6 +715,7 @@ esp_err_t esp_rmaker_param_update(const esp_rmaker_param_t *param, esp_rmaker_pa
         default:
             return ESP_ERR_INVALID_ARG;
     }
+    _param->flags |= RMAKER_PARAM_FLAG_VALUE_CHANGE;
     if (_param->prop_flags & PROP_FLAG_PERSIST) {
         esp_rmaker_param_store_value(_param);
     }
@@ -716,7 +728,6 @@ esp_err_t esp_rmaker_param_report(const esp_rmaker_param_t *param)
         ESP_LOGE(TAG, "Param handle cannot be NULL.");
         return ESP_ERR_INVALID_ARG;
     }
-    ((_esp_rmaker_param_t *)param)->flags |= RMAKER_PARAM_FLAG_VALUE_CHANGE;
     return esp_rmaker_report_param_internal(RMAKER_PARAM_FLAG_VALUE_CHANGE);
 }
 

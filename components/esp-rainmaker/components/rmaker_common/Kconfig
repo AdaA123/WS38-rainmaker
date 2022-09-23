@@ -11,15 +11,14 @@ menu "ESP RainMaker Common"
         config ESP_RMAKER_LIB_AWS_IOT
             bool "AWS-IOT"
     endchoice
-
     config ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
         bool "rainmaker mqtt disable reconnect"
-        depends on ESP_RMAKER_LIB_ESP_MQTT
-        default n
+         depends on ESP_RMAKER_LIB_ESP_MQTT
+         default n
         help
-            ESP RainMaker MQTT auto reconnect be default, if you want to handle reconnect action by hands disable it.
-
-
+             ESP RainMaker MQTT auto reconnect be default, if you want to handle reconnect action by hands disable it.
+ 
+ 
     config ESP_RMAKER_MQTT_GLUE_LIB
         int
         default 1 if ESP_RMAKER_LIB_ESP_MQTT
@@ -62,13 +61,34 @@ menu "ESP RainMaker Common"
             Send a Username during MQTT Connect. This is generally required only for tracking
             the MQTT client types, platform, SDK, etc. in AWS.
 
-    config ESP_RMAKER_MQTT_USERNAME
-        string "MQTT Username"
+    config ESP_RMAKER_MQTT_PRODUCT_NAME
+        string "Product Name"
         depends on ESP_RMAKER_MQTT_SEND_USERNAME
-        default "?Platform=APN/1 ESPIF,RAINMAKER,v1.0"
+        default "RMDev"
         help
-            Username to be passed during MQTT Connect. This is generally used only for tracking
-            the MQTT client types, platform, SDK, etc. in AWS. Please do not change unless required.
+            Approved AWS product name. Please get in touch with your Espressif/AWS representative for more info.
+
+    config ESP_RMAKER_MQTT_PRODUCT_VERSION
+        string "Product Version"
+        depends on ESP_RMAKER_MQTT_SEND_USERNAME
+        default "1x0"
+        help
+            Approved AWS product version. Please get in touch with your Espressif/AWS representative for more info.
+
+    config ESP_RMAKER_MQTT_PRODUCT_SKU
+        string "Product SKU"
+        depends on ESP_RMAKER_MQTT_SEND_USERNAME
+        default "ES00"
+        help
+            Product SKU. Please get in touch with your Espressif/AWS representative for more info.
+
+    config ESP_RMAKER_MQTT_USE_CERT_BUNDLE
+        bool "Use Certificate Bundle"
+        default y
+        help
+            Use Certificate Bundle for server authentication. Enabling this is recommended to safeguard
+            against any changes in the server certificates in future. This has an impact on the binary
+            size as well as heap requirement.
 
     config ESP_RMAKER_WORK_QUEUE_TASK_STACK
         int "ESP RainMaker Work Queue Task stack"

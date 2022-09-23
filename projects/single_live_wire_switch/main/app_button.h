@@ -6,10 +6,4 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #pragma once
-
-#define BUTTON_1        GPIO_NUM_8
-
-#define REBOOT_DELAY        2
-
-esp_err_t app_button_init(void);
-
+int app_button_init(void);
