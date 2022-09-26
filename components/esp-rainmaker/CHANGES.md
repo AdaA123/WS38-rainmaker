@@ -1,5 +1,62 @@
 # Changes
 
+## 26-May-2022 (claiming and ota)
+
+- claiming: Make self claiming as the default for esp32s3 and esp32c3
+- ota: Make "OTA using Topics" as default and provide a simplified API for that
+
+Self claiming is much more convenient and fast since the node directly gets the
+credentials from the claiming service over HTTPS, instead of using the slower BLE based
+Assisted claiming, wherein the phone app acts as a proxy between the node and the
+claiming service. However, with self claiming, there was no concept of
+[Admin Role](https://rainmaker.espressif.com/docs/user-roles.html#admin-users) and so, it was
+not possible to access the node via the RainMaker or Insights dashboards. This was one
+reason why Assisted Claiming was kept as a default for esp32c3 and esp32s3 even though
+they support self claiming.
+
+With recent changes in the Public RainMaker backend, the primary user (the user who performs the [user-node
+mapping](https://rainmaker.espressif.com/docs/user-node-mapping.html)) for a self claimed
+node is now made as the admin. This gives the primary user the access to the node for OTA and Insights.
+So, self claiming has now been made as the default for all chips (except esp32) and the OTA Using Topics
+has also been made as the default, since it is convenient and also the correct option for
+production devices. A simpler API `esp_rmaker_ota_enable_default()` as also been added in esp_rmaker_core.h.
+
+Note: Nodes that are already claimed via Assisted/Host Claiming will not have any effect, even if the
+new firmware is enabled with self claiming. The self claiming will take effect only if the flash is
+erased. **This will result in a change of node_id, since mac address is the node_id for self claimed nodes.**
+If you want to contine using Assisted Claiming (probably because there is quite some data associated
+with the node_id), please set is explicitly in your sdkconfig.
+
+## 25-Jan-2022 (app_wifi: Minor feature additions to provisioning workflow)
+
+Added a 30 minute timeout for Wi-Fi provisioning as a security measure. A device reboot will be
+required to restart provisioning after it times out. The value can changed using the
+`CONFIG_APP_WIFI_PROV_TIMEOUT_PERIOD` config option. A value of 0 will disable the timeout logic.
+`APP_WIFI_EVENT_PROV_TIMEOUT` event will be triggerd to indicate that the provisioning has timed out.
+
+## 25-Jan-2022 (examples: Enable some security features and change order of component dirs)
+
+A couple of security features were added some time back, viz.
+
+1. esp_rmaker_local_ctrl: Added support for sec1
+2. esp_rmaker_user_mapping: Add checks for user id for better security
+
+These are kept disabled by default at component level to maintain backward compatibility and not
+change any existing projects. However, since enabling them is recommended, these are added in
+the sdkconfig.defaults of all examples.
+
+A minor change in CMakeLists.txt has also been done for all examples so that the rmaker_common
+component from esp-rainmaker gets used, rather than the one from esp-insights.
+
+## 12-Jan-2022 (esp_rmaker_local_ctrl: Added support for sec1)
+
+This commit adds support for security1 for local control. This can be enabled by setting
+`CONFIG_ESP_RMAKER_LOCAL_CTRL_SECURITY_1` when using local control feature (this is the
+default security level when enabling local control). This would also require the latest
+phone apps which have the support for security1.
+
+You can check the docs [here](https://rainmaker.espressif.com/docs/local-control.html) for more details.
+
 ## 24-Aug-2021 (esp_rmaker_user_mapping: Add checks for user id for better security)
 
 This commit adds some logic to detect a reset to factory or a user change during the

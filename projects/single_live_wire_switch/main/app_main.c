@@ -33,8 +33,6 @@
 
 static const char *TAG = "app_main";
 
-__uint8_t s_wifi_init_end_flag = 0 ;
-
 static esp_pm_lock_handle_t s_pm_cpu_lock = NULL;
 
 static uint8_t lock_status = 0;
@@ -58,20 +56,11 @@ void start_power_save(void)
     }
 }
 
-void app_wifi_init_end(void)
+int app_driver_init(void)
 {
-    printf("WIFIINITENDCMD\n");
-    send_bri_ctrl_info(WIFIINITENDCMD,1);
-    // single_fire_led_blink_off();
-    // esp_rmaker_update(OnOffCMD, Get_Bri_Status());
-    // esp_rmaker_update(BriNowCMD, Get_Btight_Pct());
-}
-
-int app_driver_init(void)   
-{
-	//app_led_init();
-	//app_button_init();
-    Bri_Ctrl_Init();
+	// app_led_init();
+	// app_button_init();
+	app_relay_init();
 	return ESP_OK;
 }
 
@@ -85,8 +74,7 @@ int app_pm_config(void)
    esp_pm_config_esp32_t pm_config = {
 #elif CONFIG_IDF_TARGET_ESP32S2
    esp_pm_config_esp32s2_t pm_config = {
-#elif CONFIG_IDF_TARGET_ESP32C3        
-
+#elif CONFIG_IDF_TARGET_ESP32C3
    esp_pm_config_esp32c3_t pm_config = {
 #endif
            .max_freq_mhz = CONFIG_EXAMPLE_MAX_CPU_FREQ_MHZ,
@@ -101,9 +89,8 @@ int app_pm_config(void)
    if (esp_pm_lock_create(ESP_PM_APB_FREQ_MAX , 0, "l_cpu", &s_pm_cpu_lock) != ESP_OK) {
      			 ESP_LOGE(TAG, "esp pm lock create failed");
                 }
-                
-   #endif // CONFIG_PM_ENABLE
 
+   #endif // CONFIG_PM_ENABLE
    return ESP_OK;
 }
 
@@ -141,11 +128,8 @@ void app_main()
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK( err );
-	app_driver_init();
 	app_pm_config();
-    adc_cheak();
-    wifi_start_init();
-
+	app_driver_init();
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()
      */
     app_wifi_init();
@@ -158,7 +142,7 @@ void app_main()
     app_wifi_prov_config_t pro_config = { 0 };
     fill_mfg_info(pro_config.mfg);
     pro_config.broadcast_prefix = "Nova";
-    pro_config.prov_timeout = 1;
+    pro_config.prov_timeout = 2;  //配网等待时间
 	pro_config.enable_prov = 1;
     
     /* Start the Wi-Fi.
@@ -172,6 +156,4 @@ void app_main()
         vTaskDelay(5000/portTICK_PERIOD_MS);
         abort();
     }
-
-    s_wifi_init_end_flag = 1;
 }

@@ -83,6 +83,39 @@ esp_err_t esp_diag_variable_register(const char *tag, const char *key,
     return ESP_OK;
 }
 
+esp_err_t esp_diag_variable_unregister(const char *key)
+{
+    int i;
+    if (!key) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_priv_data.init) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    for (i = 0; i < s_priv_data.variables_count; i++) {
+        if (s_priv_data.variables[i].key && strcmp(s_priv_data.variables[i].key, key) == 0) {
+            break;
+        }
+    }
+    if (i < s_priv_data.variables_count) {
+        s_priv_data.variables[i] = s_priv_data.variables[s_priv_data.variables_count - 1];
+        memset(&s_priv_data.variables[s_priv_data.variables_count - 1], 0, sizeof(esp_diag_variable_meta_t));
+        s_priv_data.variables_count--;
+        return ESP_OK;
+    }
+    return ESP_ERR_NOT_FOUND;
+}
+
+esp_err_t esp_diag_variable_unregister_all(void)
+{
+    if (!s_priv_data.init) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    memset(&s_priv_data.variables, 0, sizeof(s_priv_data.variables));
+    s_priv_data.variables_count = 0;
+    return ESP_OK;
+}
+
 const esp_diag_variable_meta_t *esp_diag_variable_meta_get_all(uint32_t *len)
 {
     if (!s_priv_data.init) {
@@ -99,9 +132,9 @@ void esp_diag_variable_meta_print_all(void)
     uint32_t i;
     const esp_diag_variable_meta_t *meta = esp_diag_variable_meta_get_all(&len);
     if (meta) {
-        ets_printf("Tag\tKey\tLabel\tPath\tData type\n");
+        ESP_LOGI(TAG, "Tag\tKey\tLabel\tPath\tData type\n");
         for (i = 0; i < len; i++) {
-            ets_printf("%s\t%s\t%s\t%s\t%d\n", meta[i].tag, meta[i].key, meta[i].label, meta[i].path, meta[i].type);
+            ESP_LOGI(TAG, "%s\t%s\t%s\t%s\t%d\n", meta[i].tag, meta[i].key, meta[i].label, meta[i].path, meta[i].type);
         }
     }
 }
@@ -116,6 +149,15 @@ esp_err_t esp_diag_variable_init(esp_diag_variable_config_t *config)
     }
     memcpy(&s_priv_data.config, config, sizeof(s_priv_data.config));
     s_priv_data.init = true;
+    return ESP_OK;
+}
+
+esp_err_t esp_diag_variables_deinit(void)
+{
+    if (!s_priv_data.init) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    memset(&s_priv_data, 0, sizeof(s_priv_data));
     return ESP_OK;
 }
 
@@ -146,7 +188,7 @@ esp_err_t esp_diag_variable_add(esp_diag_data_type_t data_type,
     memset(&data, 0, sizeof(data));
     data.type = ESP_DIAG_DATA_PT_VARIABLE;
     data.data_type = data_type;
-    data.key = key;
+    strlcpy(data.key, key, sizeof(data.key));
     data.ts = ts;
     memcpy(&data.value, val, val_sz);
 

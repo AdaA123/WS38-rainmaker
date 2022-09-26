@@ -6,9 +6,6 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #pragma once
-
-#define PROVISION_LED   GPIO_NUM_2
-
 enum {
 	LED_STATE_OFF,
 	LED_STATE_ON,
@@ -17,9 +14,5 @@ enum {
 };
 
 int app_led_set_state(int state);
-void app_led_init(void);
+int app_led_init(void);
 int app_led_get_state(void);
-void single_fire_led_on();
-void single_fire_led_off();
-void single_fire_led_blink_on();
-void single_fire_led_blink_off();

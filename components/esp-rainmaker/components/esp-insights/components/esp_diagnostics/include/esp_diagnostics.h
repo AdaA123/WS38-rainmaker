@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
+#include <stdbool.h>
 #include <esp_err.h>
 #include <esp_log.h>
 
@@ -117,7 +118,7 @@ typedef struct {
     uint32_t pc;                                        /*!< Program Counter */
     uint64_t timestamp;                                 /*!< If NTP sync enabled then POSIX time,
                                                              otherwise relative time since bootup in microseconds */
-    const char *tag;                                    /*!< Tag of log message */
+    char tag[16];                                       /*!< Tag of log message */
     void *msg_ptr;                                      /*!< Address of err/warn/event message in rodata */
     uint8_t msg_args[CONFIG_DIAG_LOG_MSG_ARG_MAX_SIZE]; /*!< Arguments of log message */
     uint8_t msg_args_len;                               /*!< Length of argument */
@@ -163,13 +164,13 @@ typedef struct {
 typedef struct {
     uint16_t type;       /*!< Metrics or Variable */
     uint16_t data_type;  /*!< Data type */
-    const char *key;     /*!< Key */
+    char key[16];        /*!< Key */
     uint64_t ts;         /*!< Timestamp */
     union {
         bool b;          /*!< Value for boolean data type */
         int32_t i;       /*!< Value for integer data type */
         uint32_t u;      /*!< Value for unsigned integer data type */
-        double d;        /*!< Value for float data type */
+        float f;         /*!< Value for float data type */
         uint32_t ipv4;   /*!< Value for the IPv4 address */
         uint8_t mac[6];  /*!< Value for the MAC address */
     } value;
@@ -181,7 +182,7 @@ typedef struct {
 typedef struct {
     uint16_t type;       /*!< Metrics or Variable */
     uint16_t data_type;  /*!< Data type */
-    const char *key;     /*!< Key */
+    char key[16];        /*!< Key */
     uint64_t ts;         /*!< Timestamp */
     union {
         char str[32];    /*!< Value for string data type */
@@ -234,7 +235,7 @@ esp_err_t esp_diag_log_event(const char *tag, const char *format, ...) __attribu
  */
 #define ESP_DIAG_EVENT(tag, format, ...) \
 { \
-    esp_diag_log_event(tag, "EV " format, ##__VA_ARGS__); \
+    esp_diag_log_event(tag, "EV (%u) %s: " format, esp_log_timestamp(), tag, ##__VA_ARGS__); \
     ESP_LOGI(tag, format, ##__VA_ARGS__); \
 }
 

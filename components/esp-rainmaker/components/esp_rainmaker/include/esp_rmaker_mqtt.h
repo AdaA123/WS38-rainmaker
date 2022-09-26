@@ -52,12 +52,6 @@ esp_err_t esp_rmaker_mqtt_connect(void);
  */
 esp_err_t esp_rmaker_mqtt_disconnect(void);
 
-#if CONFIG_ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
-esp_err_t esp_rmaker_mqtt_reconnect(void);
-int esp_rmaker_mqtt_is_connected(void);
-#endif
-
-
 /** Publish MQTT Message
  *
  * @param[in] topic The MQTT topic on which the message should be published.
@@ -68,6 +62,12 @@ int esp_rmaker_mqtt_is_connected(void);
  * @return ESP_OK on success.
  * @return error in case of any error.
  */
+
+
+#if CONFIG_ESP_RMAKER_MQTT_DISABLE_AUTO_RECONNECT
+esp_err_t esp_rmaker_mqtt_reconnect(void);
+int esp_rmaker_mqtt_is_connected(void);
+#endif
 esp_err_t esp_rmaker_mqtt_publish(const char *topic, void *data, size_t data_len, uint8_t qos, int *msg_id);
 
 /** Subscribe to MQTT topic

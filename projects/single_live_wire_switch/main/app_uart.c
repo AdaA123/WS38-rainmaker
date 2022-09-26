@@ -147,20 +147,6 @@ void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
     ucSendBuff[3] = dat;
     ucSendBuff[4] = ucSendBuff[0] + ucSendBuff[1] + ucSendBuff[2]  + ucSendBuff[3];
     ucSendFlag = 1;
-
-    // gpio_hold_dis(MCU_WAJEUP_IO);
-    // gpio_set_level(MCU_WAJEUP_IO, 1);
-    // gpio_hold_en(MCU_WAJEUP_IO);
-    
-    // vTaskDelay(pdMS_TO_TICKS(1));
-
-    // gpio_hold_dis(MCU_WAJEUP_IO);
-    // gpio_set_level(MCU_WAJEUP_IO, 0);
-    // gpio_hold_en(MCU_WAJEUP_IO);
-
-    // uart_write_bytes(EX_UART_NUM, (const char*) ucSendBuff, sizeof(ucSendBuff));
-
-    //esp_rmaker_update(cmd, dat);
     
     if (0 == ucSendTaskHandle_Flag)
     {

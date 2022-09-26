@@ -221,7 +221,6 @@ static void handle_wifi_events(int32_t event_id, void* event_data)
 			wifi_event_sta_disconnected_t* disconnected = (wifi_event_sta_disconnected_t*) event_data;
 			ESP_LOGI(TAG, "Wifi Disconnected :%s",wifi_disconnect_reason_to_str(disconnected->reason));
             wifi_custom_connect_fail(get_strategy_ref());
-            single_fire_led_blink_on();
         }
         break;
 		case WIFI_EVENT_STA_CONNECTED:

@@ -26,7 +26,7 @@ before_script:
 - git --version
 # Cloning esp-idf - Started
 - echo Cloning esp-idf - Started
-- git clone --recursive --branch v4.3 --depth 1 ${IDF_GIT_PATH}/esp-idf.git
+- git clone --recursive --branch ${IDF_GIT_BRANCH} --depth 1 ${IDF_GIT_PATH}/esp-idf.git
 - cd esp-idf
 - echo Cloning esp-idf - Done
 # Cloning esp-idf - Done
@@ -40,14 +40,14 @@ before_script:
 - . export.sh
 - echo Running export.sh - Done
 # Running export.sh - Done
-# Applying patch for v4.3
-- git apply $CI_PROJECT_DIR/idf-patches/Diagnostics-support-in-esp-idf-tag-v4.3.patch
 
 .build_minimal_diagnostics: &build_minimal_diagnostics
 # Building minimal_diagnostics app - Started
 - echo Building minimal_diagnostics app - Started
 - ls
 - cd $CI_PROJECT_DIR/examples/minimal_diagnostics
+# Build this for MQTT transport
+- echo CONFIG_ESP_INSIGHTS_TRANSPORT_MQTT=y >> sdkconfig.defaults
 - echo Running idf.py
 - idf.py build
 - echo Building minimal_diagnostics app - Done
@@ -61,7 +61,10 @@ before_script:
 - ls
 - cd $CI_PROJECT_DIR/examples/diagnostics_smoke_test
 
-# esp-idf branch:master, target:ESP32
+# Build this example for HTTPS transport, insights_auth_key.txt file is required
+- touch main/insights_auth_key.txt
+
+# esp-idf tag v4.3.2, target:ESP32
 - echo Building app on esp-idf master for ESP32
 - idf.py set-target esp32
 - idf.py build
@@ -70,13 +73,13 @@ before_script:
 - cp $CI_PROJECT_DIR/examples/diagnostics_smoke_test/build/diagnostics_smoke_test.bin $CI_PROJECT_DIR/insights-bins-${CI_JOB_ID}/
 - rm -rf build sdkconfig
 
-# esp-idf branch:master, target:ESP32S2
+# esp-idf tag v4.3.2, target:ESP32S2
 - echo Building app on esp-idf master for ESP32S2
 - idf.py set-target esp32s2
 - idf.py build
 - rm -rf build sdkconfig
 
-# esp-idf branch:master, target:ESP32C3
+# esp-idf tag v4.3.2, target:ESP32C3
 - echo Building app on esp-idf master for ESP32C3
 - idf.py set-target esp32c3
 - idf.py build
@@ -86,7 +89,7 @@ before_script:
 
 build_app:
   stage: build
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env:esp-insights
   tags:
     - build
   artifacts:
@@ -111,7 +114,7 @@ build_app:
   
 push_master_to_github:
   stage: deploy
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env:esp-insights
   tags:
     - build
   when: on_success

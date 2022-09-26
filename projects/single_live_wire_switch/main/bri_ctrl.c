@@ -13,7 +13,7 @@
 #include <esp_wifi.h>
 
 #include "bri_ctrl.h"
-#include "app_led.h"
+// #include "app_led.h"
 #include "app_priv.h"
 
 static const char *TAG = "uart_events";

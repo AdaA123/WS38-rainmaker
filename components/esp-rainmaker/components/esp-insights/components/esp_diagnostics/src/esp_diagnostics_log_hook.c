@@ -16,10 +16,23 @@
 #include "string.h"
 #include "esp_log.h"
 #include "esp_diagnostics.h"
-#include "soc/cpu.h"
 #include "soc/soc_memory_layout.h"
+#include "esp_idf_version.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+
+/* Onwards esp-idf v5.0 esp_cpu_process_stack_pc() is moved to
+ * components/xtensa/include/esp_cpu_utils.h
+ */
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    #if CONFIG_IDF_TARGET_ARCH_XTENSA
+        #include "esp_cpu_utils.h"
+    #else /* CONFIG_IDF_TARGET_ARCH_RISCV */
+        #define esp_cpu_process_stack_pc(x) (x)   // dummy definition to avoid compilation error
+    #endif
+#else // For esp-idf version <= v4.4
+    #include "soc/cpu.h"
+#endif
 
 #define IS_LOG_TYPE_ENABLED(type) (s_priv_data.init && (type & s_priv_data.enabled_log_type))
 
@@ -309,13 +322,7 @@ static esp_err_t diag_log_add(esp_diag_log_type_t type, uint32_t pc, const char 
     log.pc = pc;
     va_copy(ap, args);
     log.timestamp = esp_diag_timestamp_get();
-
-    if (esp_ptr_in_drom(tag)) {
-        log.tag = tag;
-    } else {
-        log.tag = "";
-    }
-
+    strlcpy(log.tag, tag, sizeof(log.tag));
     log.msg_ptr = (void *)format;
     log.msg_args_len = sizeof(log.msg_args);
 #ifdef CONFIG_DIAG_LOG_MSG_ARG_FORMAT_TLV
@@ -336,21 +343,46 @@ static esp_err_t diag_log_add(esp_diag_log_type_t type, uint32_t pc, const char 
     return write_data(&log, sizeof(log));
 }
 
+/* If log level of a particular tag is set to less than ERROR
+ * using esp_log_level_set() then those logs are ignored
+ */
 static esp_err_t esp_diag_log_error(uint32_t pc, const char *tag, const char *format, va_list args)
 {
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+    if (esp_log_level_get(tag) < ESP_LOG_ERROR) {
+        return ESP_FAIL;
+    }
+#endif
     return diag_log_add(ESP_DIAG_LOG_TYPE_ERROR, pc, tag, format, args);
 }
 
+/* If log level of a particular tag is set to less than WARNING
+ * using esp_log_level_set() then those logs are ignored
+ */
 static esp_err_t esp_diag_log_warning(uint32_t pc, const char *tag, const char *format, va_list args)
 {
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+    if (esp_log_level_get(tag) < ESP_LOG_WARN) {
+        return ESP_FAIL;
+    }
+#endif
     return diag_log_add(ESP_DIAG_LOG_TYPE_WARNING, pc, tag, format, args);
 }
 
+/* If log level of a particular tag is set to less than INFO
+ * using esp_log_level_set() then those logs are ignored
+ */
 esp_err_t esp_diag_log_event(const char *tag, const char *format, ...)
 {
     esp_err_t err;
     va_list args;
     uint32_t pc = esp_cpu_process_stack_pc((uint32_t)__builtin_return_address(0));
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+    if (esp_log_level_get(tag) < ESP_LOG_INFO) {
+        return ESP_FAIL;
+    }
+#endif
 
     va_start(args, format);
     err = diag_log_add(ESP_DIAG_LOG_TYPE_EVENT, pc, tag, format, args);
@@ -403,12 +435,15 @@ void __wrap_esp_log_writev(esp_log_level_t level,
                            const char *format,
                            va_list args)
 {
+#ifndef CONFIG_DIAG_LOG_DROP_WIFI_LOGS
     /* Only collect logs with "wifi" tag */
     if (strcmp(tag, "wifi") == 0) {
         uint32_t pc = 0;
         pc = esp_cpu_process_stack_pc((uint32_t)__builtin_return_address(0));
         esp_diag_log(level, pc, tag, format, args);
     }
+#endif /* !CONFIG_DIAG_LOG_DROP_WIFI_LOGS */
+
     __real_esp_log_writev(level, tag, format, args);
 }
 

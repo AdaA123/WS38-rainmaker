@@ -47,8 +47,7 @@ These configuration items are set already in sdkconfig.defaults，you can also u
   - Component config -> ESP32C3-Specific -> Number of cycles for RTC_SLOW_CLK calibration  3000 to 1024
   ```
 
-- You need a account for NovaHome APP, there is a [test bin](../projects/single_live_wire_switch/test_ID.bin) with account information. Download this bin to address `0x15000` with help of [Download Guide](Download_Guide_EN.md).
-
+- When use NovaHome APP, you need an account for Claiming, you just need choose the **Use Self Claiming** in *menuconfig->ESP RainMaker Config->Claiming Type*.
   
 
 
