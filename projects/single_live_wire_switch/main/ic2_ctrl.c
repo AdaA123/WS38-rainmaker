@@ -8,8 +8,6 @@
 
 #include <esp_wifi.h>
 
-#include "ic2_ctrl.h"
-#include "bri_ctrl.h"
 #include "app_priv.h"
 
 #define TIMES 256
@@ -23,7 +21,6 @@ static uint16_t adc1_reading;
 static int n, ic2_cnt = 0;
 
 static int ADC_CHECK_OK = 0;
-static int ic2_flag = 0;
 
 int Is_ADC_CHECK_OK(void)
 {
@@ -78,10 +75,11 @@ static void single_read(void* arg)
         while (n--) 
         {
             adc1_reading_sum += adc1_get_raw(ADC1_CHANNEL_3);
+            vTaskDelay(pdMS_TO_TICKS(1));
         }
 
         adc1_reading = adc1_reading_sum / GET_ADC_TIMES;
-        //ESP_LOGI("single_read ADC1_CH3", "%d", adc1_reading);
+        
         adc1_reading_sum = 0;
 
         if (2189 < adc1_reading && 0 == ic2_cnt)
@@ -93,7 +91,6 @@ static void single_read(void* arg)
             if (1 == ic2_cnt)
             {
                 esp_wifi_start();
-	            single_fire_led_blink_off_adc();
             }
             ic2_cnt--;
             vTaskDelay(pdMS_TO_TICKS(30 * 1000));
@@ -103,8 +100,8 @@ static void single_read(void* arg)
             if (0 == ic2_cnt)
             {
                 esp_wifi_stop();
-	            single_fire_led_blink_on_adc();
             }
+
             ic2_cnt = 3;
             vTaskDelay(pdMS_TO_TICKS(30 * 1000));
         }

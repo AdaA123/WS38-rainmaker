@@ -1,4 +1,4 @@
-/* Switch Example
+/* dimmer Example
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
@@ -31,56 +31,49 @@
 
 #define APP_RAINMAKER_MQTT_RECONNECT_TIMEOUT (60)  //seconds
 static const char *TAG = "app_rmaker";
-static esp_rmaker_device_t* switch_device;
+static esp_rmaker_device_t* dimmer_device;
 static esp_timer_handle_t rmaker_reconnect_timer;
 
 /* Callback to handle commands received from the RainMaker cloud */
-static esp_err_t switch_write_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
+static esp_err_t dimmer_write_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
             const esp_rmaker_param_val_t val, void *priv_data, esp_rmaker_write_ctx_t *ctx)
 {
     if (ctx) {
         ESP_LOGI(TAG, "Received write request via : %s", esp_rmaker_device_cb_src_to_str(ctx->src));
     }
-    if (strcmp(esp_rmaker_param_get_name(param), app_relay_get_name(SWITCH_CHANNEL_1)) == 0) {
+    if (strcmp(esp_rmaker_param_get_name(param), ESP_RMAKER_DEF_POWER_NAME) == 0) {
         ESP_LOGI(TAG, "Received value = %s for %s - %s",
                 val.val.b? "true" : "false", esp_rmaker_device_get_name(device),
                 esp_rmaker_param_get_name(param));
 		
-        app_relay_set_state(SWITCH_CHANNEL_1, val.val.b);
+        Set_Bri_Status(val.val.b);
         esp_rmaker_param_update_and_report(param, val);
-    } else if (strcmp(esp_rmaker_param_get_name(param), app_relay_get_name(SWITCH_CHANNEL_2)) == 0) {
-        ESP_LOGI(TAG, "Received value = %s for %s - %s",
-                val.val.b? "true" : "false", esp_rmaker_device_get_name(device),
-                esp_rmaker_param_get_name(param));
-		
-        app_relay_set_state(SWITCH_CHANNEL_2, val.val.b);
-        esp_rmaker_param_update_and_report(param, val);
-    } else if (strcmp(esp_rmaker_param_get_name(param), app_relay_get_name(SWITCH_CHANNEL_3)) == 0) {
-        ESP_LOGI(TAG, "Received value = %s for %s - %s",
-                val.val.b? "true" : "false", esp_rmaker_device_get_name(device),
-                esp_rmaker_param_get_name(param));
-		
-        app_relay_set_state(SWITCH_CHANNEL_3, val.val.b);
-        esp_rmaker_param_update_and_report(param, val);
-    } else if (strcmp(esp_rmaker_param_get_name(param), "Power") == 0) {
-        ESP_LOGI(TAG, "Received value = %s for %s - %s",
-                val.val.b? "true" : "false", esp_rmaker_device_get_name(device),
-                esp_rmaker_param_get_name(param));
-		
-        app_relay_set_state(SWITCH_CHANNEL_ALL, val.val.b);
+    } else if (strcmp(esp_rmaker_param_get_name(param), ESP_RMAKER_DEF_BRIGHTNESS_NAME) == 0) {
+        ESP_LOGI(TAG, "Received value = %d for %s - %s",
+                    val.val.b, 
+                    esp_rmaker_device_get_name(device),
+                    esp_rmaker_param_get_name(param)
+                );
+		    Set_Btight_Pct(val.val.b);//set luminance
         esp_rmaker_param_update_and_report(param, val);
     }
+
     return ESP_OK;
 }
 
-
-esp_err_t app_rainmaker_update_relay_state(int chan, int state)
+esp_err_t app_rainmaker_update_dimmer_state(int state, int lume)
 {
-	if (switch_device == NULL) return ESP_FAIL;
-	esp_rmaker_param_t *param = esp_rmaker_device_get_param_by_name(switch_device,app_relay_get_name(chan));
+	if (dimmer_device == NULL) return ESP_FAIL;
+	esp_rmaker_param_t *param = esp_rmaker_device_get_param_by_name(dimmer_device,ESP_RMAKER_DEF_POWER_NAME);
 	if (param == NULL) return ESP_FAIL;
-	esp_rmaker_param_val_t val = esp_rmaker_bool(chan);
-    return esp_rmaker_param_update_and_notify(param, val);
+	esp_rmaker_param_val_t val = esp_rmaker_bool(state);
+    esp_rmaker_param_update_and_notify(param, val);
+
+	esp_rmaker_param_t *param_l = esp_rmaker_device_get_param_by_name(dimmer_device,ESP_RMAKER_DEF_BRIGHTNESS_NAME);
+	if (param == NULL) return ESP_FAIL;
+	esp_rmaker_param_val_t val_l = esp_rmaker_int(lume);
+
+    return esp_rmaker_param_update_and_notify(param_l, val_l);
 }
 
 static void rmaker_reconnect_timer_callback(void* arg)
@@ -111,7 +104,6 @@ void app_rainmaker_reconnect_timer_stop(void)
 		esp_timer_stop(rmaker_reconnect_timer);
 	}
 }
-
 
 /* Event handler for catching RainMaker events */
 static void event_handler(void* arg, esp_event_base_t event_base,
@@ -191,43 +183,43 @@ int app_rainmaker_init(void)
     esp_rmaker_config_t rainmaker_cfg = {
         .enable_time_sync = false,
     };
-    esp_rmaker_node_t *node = esp_rmaker_node_init(&rainmaker_cfg, "Single Live Wire Dimmer", "Switch");
+    esp_rmaker_node_t *node = esp_rmaker_node_init(&rainmaker_cfg, "Single Live Wire Dimmer", "Dimmer");
     if (!node) {
         ESP_LOGE(TAG, "Could not initialise node. Aborting!!!");
         vTaskDelay(5000/portTICK_PERIOD_MS);
         abort();
     }
 
-	switch_device = esp_rmaker_device_create("switch", ESP_RMAKER_DEVICE_SWITCH, NULL);
-    esp_rmaker_device_add_cb(switch_device, switch_write_cb, NULL);
+	dimmer_device = esp_rmaker_device_create("dimmer", ESP_RMAKER_DEVICE_LIGHT, NULL);
+    esp_rmaker_device_add_cb(dimmer_device, dimmer_write_cb, NULL);
 
 	//name
-	esp_rmaker_device_add_param(switch_device, esp_rmaker_param_create(ESP_RMAKER_DEF_NAME_PARAM, ESP_RMAKER_PARAM_NAME,
-        esp_rmaker_str("switch"), PROP_FLAG_READ | PROP_FLAG_WRITE));
+	esp_rmaker_device_add_param(dimmer_device, esp_rmaker_param_create(ESP_RMAKER_DEF_NAME_PARAM, ESP_RMAKER_PARAM_NAME,
+        esp_rmaker_str("dimmer"), PROP_FLAG_READ | PROP_FLAG_WRITE));
 
 	/*
 	esp_rmaker_param_t* power_param = esp_rmaker_param_create(ESP_RMAKER_DEF_POWER_NAME, ESP_RMAKER_PARAM_POWER,
         esp_rmaker_bool(app_relay_get_state(SWITCH_CHANNEL_ALL)), PROP_FLAG_READ | PROP_FLAG_WRITE);
     esp_rmaker_param_add_ui_type(power_param, ESP_RMAKER_UI_TOGGLE);
-    esp_rmaker_device_add_param(switch_device, power_param);
+    esp_rmaker_device_add_param(dimmer_device, power_param);
     */
 
 	char *para_name;
     char esp_para[32] = { 0 };
-	for (int i = SWITCH_CHANNEL_1; i< SWITCH_CHANNEL_MAX; i++){
-        memset(esp_para, 0, sizeof(esp_para));
-        para_name = app_relay_get_name(i);
-        sprintf(esp_para, "esp.param.Power%d", i + 1);
-        esp_rmaker_param_t* relay_status = esp_rmaker_param_create(para_name, esp_para,
-            esp_rmaker_bool(app_relay_get_state(i)), PROP_FLAG_READ | PROP_FLAG_WRITE);
-        esp_rmaker_param_add_ui_type(relay_status, ESP_RMAKER_UI_TOGGLE);
-			
-        esp_rmaker_device_add_param(switch_device, relay_status);
-	}	
-	//esp_rmaker_device_assign_primary_param(switch_device, power_param);
+    memset(esp_para, 0, sizeof(esp_para));
+    para_name = ESP_RMAKER_DEF_POWER_NAME;
+    sprintf(esp_para, "esp.param.Power%d",  1);
+    esp_rmaker_param_t* relay_status = esp_rmaker_param_create(para_name, esp_para,
+        esp_rmaker_bool( Get_Bri_Status()), PROP_FLAG_READ | PROP_FLAG_WRITE);
+    esp_rmaker_param_add_ui_type(relay_status, ESP_RMAKER_UI_TOGGLE);
+        
+    esp_rmaker_device_add_param(dimmer_device, relay_status);
+	//esp_rmaker_device_assign_primary_param(dimmer_device, power_param);
 	
-	/* Add this single_switch device to the node */
-	esp_rmaker_node_add_device(node, switch_device);
+    esp_rmaker_device_add_param(dimmer_device, esp_rmaker_brightness_param_create(ESP_RMAKER_DEF_BRIGHTNESS_NAME, Get_Btight_Pct()));
+
+	/* Add this single_dimmer device to the node */
+	esp_rmaker_node_add_device(node, dimmer_device);
 	
     /* Enable OTA */
     esp_rmaker_ota_config_t ota_config = {

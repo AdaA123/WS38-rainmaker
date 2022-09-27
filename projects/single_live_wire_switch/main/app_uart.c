@@ -14,7 +14,6 @@
 #include <esp_wifi.h>
 
 #include "bri_ctrl.h"
-#include "app_led.h"
 #include "app_priv.h"
 
 static const char *TAG = "uart_events";
@@ -31,6 +30,8 @@ static const char *TAG = "uart_events";
  * - Pin assignment: TxD (default), RxD (default)
  */
 
+#define REBOOT_DELAY        2
+
 #define EX_UART_NUM UART_NUM_1
 #define PATTERN_CHR_NUM    (3)         /*!< Set the number of consecutive and identical characters received by receiver which defines a UART pattern*/
 #define UART_GPIO_TX    GPIO_NUM_10
@@ -41,7 +42,7 @@ static const char *TAG = "uart_events";
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
 
-#define LENGTH													5
+#define LENGTH													6
 	//0xaa55 
 #define SendHead1												 0xaa
 #define SendHead2												0x55
@@ -58,7 +59,6 @@ static uint8_t ucSendFlag = 0;
 
 extern __uint8_t s_wifi_init_end_flag;
 
-TaskHandle_t ucSendTaskHandle = NULL;
 static int8_t ucSendTaskHandle_Flag = 0;
 static int8_t ucRxTaskHandle_Flag = 0;
 static int8_t re_wkup_mcu_flag = 0;
@@ -80,7 +80,6 @@ void send_uart_info_task(void *arg)
         if (
             ucSendBuff_temp[0] != SendHead1
             || ucSendBuff_temp[1] != SendHead2
-            //|| ucSendBuff_temp[4] != (ucSendBuff_temp[0] + ucSendBuff_temp[1] + ucSendBuff_temp[2] + ucSendBuff_temp[3])
         )
         {
             ucSendBuff_temp[2] = ERRORCMD;
@@ -97,7 +96,6 @@ void send_uart_info_task(void *arg)
             || WIFIINITENDCMD == ucSendBuff_temp[2]) 
         {
             wakeup_mcu_info_config();
-            wakeup_mcu_info();
         }
 
         stop_power_save();
@@ -114,7 +112,7 @@ void send_uart_info_task(void *arg)
 
         if (s_wifi_init_end_flag)
         {
-            esp_rmaker_update(ucSendBuff_temp[2], ucSendBuff_temp[3]);
+            app_rainmaker_update_dimmer_state(ucSendBuff_temp[2], ucSendBuff_temp[3]);
         }
 
         ucSendFlag = 0;
@@ -130,7 +128,7 @@ void send_uart_info_task(void *arg)
     
     ucSendTaskHandle_Flag = 0;
 
-    vTaskDelete(ucSendTaskHandle);
+    vTaskDelete(NULL);
 }
 
 /*-----------------------------------------------------------------------------
@@ -144,13 +142,19 @@ Others:
 void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
 {
     ucSendBuff[2] = cmd;
-    ucSendBuff[3] = dat;
-    ucSendBuff[4] = ucSendBuff[0] + ucSendBuff[1] + ucSendBuff[2]  + ucSendBuff[3];
+    
+    if (OnOffCMD == cmd)
+    {
+        ucSendBuff[3] = dat;
+    }
+    ucSendBuff[4] = dat;
+    
+    ucSendBuff[5] = ucSendBuff[0] + ucSendBuff[1] + ucSendBuff[2]  + ucSendBuff[3] + ucSendBuff[4];
     ucSendFlag = 1;
     
     if (0 == ucSendTaskHandle_Flag)
     {
-         if (xTaskCreate(send_uart_info_task, "send_uart_info_task", 4*1024, NULL, 12, &ucSendTaskHandle) != pdTRUE) {
+         if (xTaskCreate(send_uart_info_task, "send_uart_info_task", 4*1024, NULL, 12, NULL) != pdTRUE) {
             ESP_LOGE(TAG, "Error create websocket task");
             return;
         }
@@ -161,15 +165,16 @@ void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
 void uart_deal_with(uint8_t* str, uint8_t num)
 {
     uint8_t i;
-    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, UART_ACCEPT_END, 0, 0};
+    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, UART_ACCEPT_END, Get_Bri_Status(), 0};
     
-    for (i = 0; i < num - 4; ) 
+    for (i = 0; i < num - (LENGTH -1); ) 
     { 
         printf("i == %d\n", i);
         printf("str[i] = %x \tstr[i+1] = %x\n", str[i], str[i+1]);
+
         if (ReceivedHead1 == str[i] && ReceivedHead2 == str[i+1])
         {
-            printf("str[i+2] = %x \tstr[i+3] = %x\n", str[i + 2], str[i + 2]);
+            printf("str[i+2] = %x \tstr[i+3] = %x\tstr[i+3] = %x\n", str[i + 2], str[i + 2], str[i + 3]);
             SendBuff[3] = str[i + 2];
             SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];  
 
@@ -187,14 +192,14 @@ void uart_deal_with(uint8_t* str, uint8_t num)
 
                         if (s_wifi_init_end_flag)
                         {
-                            esp_rmaker_update(str[i + 2], (str[i+3])?1:0);
+                            app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
                         }
                     }
                     else
                     {
                         printf("Bri_Status same\n");
                     }
-                    printf("Bri_Status %d\n", str[i+3]);
+                    printf("Bri_Status %d\n", Get_Bri_Status());
                 break;
 
                 case BriNowCMD:
@@ -208,7 +213,7 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                                     
                             if (s_wifi_init_end_flag)
                             {
-                                esp_rmaker_update(str[i + 2], str[i+3]);
+                                app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
                             }
                         }
                     }
@@ -216,7 +221,7 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     {
                         printf("Btight_Pct same\n");
                     }
-                    printf("\t\t\t\tBtight_Pct %d\n", str[i+3]);
+                    printf("\t\t\t\tBtight_Pct %d\n", Get_Btight_Pct());
                 break;
 
                 case WIFIRESETCMD:
@@ -226,15 +231,11 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                 break;
 
                 default:
-                    i -= 3;
                 break;
             }
-            i += 5;
         }
-        else
-        {
-            i++;
-        }
+            
+        i++;
     } 
 
     start_power_save();
@@ -398,8 +399,6 @@ void wakeup_mcu_info_config(void)
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
-    vTaskDelay(pdMS_TO_TICKS(10));
-
     gpio_hold_dis(MCU_WAJEUP_IO);
     gpio_set_level(MCU_WAJEUP_IO, 1);
     gpio_hold_en(MCU_WAJEUP_IO);
@@ -407,6 +406,7 @@ void wakeup_mcu_info_config(void)
     vTaskDelay(pdMS_TO_TICKS(2));
 
     gpio_hold_dis(MCU_WAJEUP_IO);
+    gpio_set_level(MCU_WAJEUP_IO, 0);
 
     printf("wakeup_mcu_info\n");
 }
@@ -444,7 +444,7 @@ esp_err_t wakeup_io_intr_init(void)
         wakeup_io_intr_type = GPIO_INTR_POSEDGE;
     }
 
-    ret = gpio_hold_en(MCU_WAJEUP_IO);
+    // ret = gpio_hold_en(MCU_WAJEUP_IO);
 
     ret = gpio_install_isr_service(0);
 
@@ -476,7 +476,7 @@ Others:
 void bri_ctrl_uart_init(void)
 {
 	esp_log_level_set(TAG, ESP_LOG_INFO);
-    printf("uart init state\n");
+    printf("uart init start\n");
     /* Configure parameters of an UART driver,
      * communication pins and install the driver */
     uart_config_t uart_config = {

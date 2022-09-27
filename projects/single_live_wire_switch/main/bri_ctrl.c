@@ -13,7 +13,6 @@
 #include <esp_wifi.h>
 
 #include "bri_ctrl.h"
-// #include "app_led.h"
 #include "app_priv.h"
 
 static const char *TAG = "uart_events";
@@ -27,12 +26,11 @@ char Bri_Now_Pct =50;      //当前亮度
 
 extern __uint8_t s_wifi_init_end_flag;
 
-static uint8_t s_bri_add_flag = 0;
-static uint8_t s_bri_sub_flag = 0;
-
 void Set_Bri_Status(uint16_t status)
 {
 	Bri_Status = status;
+
+    send_bri_ctrl_info(OnOffCMD, Bri_Status);
 
 	return;
 }
@@ -275,7 +273,7 @@ Others:
 void Close_The_Lights(void)
 {
 	Bri_Status = 0;
-    stop_button_check();
+	
     //single_fire_led_off();
 	//send close  signal
     send_bri_ctrl_info(OnOffCMD, Bri_Status);
@@ -317,12 +315,7 @@ Others:
 -----------------------------------------------------------------------------*/
 void Bri_Ctrl_Init(void)
 {
-	Bri_Status = 0;
-
-    //mcu_wakeup_io_init();
     bri_ctrl_uart_init();
-
-    //Close_The_Lights();
 
     return;
 }
