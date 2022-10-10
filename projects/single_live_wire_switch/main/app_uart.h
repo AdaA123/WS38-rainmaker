@@ -25,9 +25,8 @@ extern "C" {
 #define UART_ACK		     	0xee    //uart ack
 #define ERRORCMD		   	0xff    //错误
 
-void mcu_wakeup_io_init(void);
 void bri_ctrl_uart_init(void);
-void wifi_start_init(void);
+void wifi_start_init_uart(void);
 
 void send_bri_ctrl_info(unsigned char cmd, unsigned char dat); 
 

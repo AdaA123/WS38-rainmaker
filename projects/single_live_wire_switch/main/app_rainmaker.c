@@ -168,6 +168,15 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
+void app_rainmaker_user_node_enable(void)
+{
+    esp_rmaker_system_serv_config_t serv_config = {
+        .flags = SYSTEM_SERV_FLAGS_ALL,
+        .reset_reboot_seconds = 2,
+    };
+    esp_rmaker_system_service_enable(&serv_config);
+}
+
 int app_rainmaker_init(void)
 {
     #if 0  //console acts abnormal when enter light sleep, chentao2@espressif.com
@@ -237,6 +246,7 @@ int app_rainmaker_init(void)
     /* Enable scheduling. */
     esp_rmaker_schedule_enable();
 
+    app_rainmaker_user_node_enable();
     /* Enable Insights. Requires CONFIG_ESP_INSIGHTS_ENABLED=y */
     //app_insights_enable();
 

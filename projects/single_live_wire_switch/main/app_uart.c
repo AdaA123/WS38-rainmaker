@@ -38,6 +38,7 @@ static const char *TAG = "uart_events";
 #define UART_GPIO_RX    GPIO_NUM_7
 
 #define MCU_WAJEUP_IO   GPIO_NUM_6
+#define WAJEUP_MCU_IO   GPIO_NUM_6
 
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
@@ -52,20 +53,15 @@ static const char *TAG = "uart_events";
 
 static QueueHandle_t uart0_queue;
 
-static uint8_t ucSendBuff[LENGTH] = { SendHead1, SendHead2, 0, 0, 0};
+static uint8_t ucSendBuff[LENGTH] = { SendHead1, SendHead2, 0, 0, 0, 0};
 static uint8_t ucSendFlag = 0;
-// static uint8_t ucReceiveData[LENGTH] = {ReceivedHead1, ReceivedHead2, 0, 0, 0};
-// static uint8_t ucRxCut = 0;
 
-extern __uint8_t s_wifi_init_end_flag;
+ __uint8_t s_wifi_init_end_flag = 0;
 
 static int8_t ucSendTaskHandle_Flag = 0;
 static int8_t ucRxTaskHandle_Flag = 0;
-static int8_t re_wkup_mcu_flag = 0;
 
-esp_err_t wait_for_mcu_info_config(gpio_num_t gpio_num);
 void wakeup_mcu_info(void);
-void wakeup_mcu_info_config(void);
 
 void send_uart_info_task(void *arg)
 {
@@ -89,30 +85,27 @@ void send_uart_info_task(void *arg)
         while(ucRxTaskHandle_Flag)
         {
             vTaskDelay(pdMS_TO_TICKS(10));
+            if (0 == gpio_get_level(MCU_WAJEUP_IO))
+            {
+                ucRxTaskHandle_Flag = 0;
+            }
         }
 
-        if(OnOffCMD == ucSendBuff_temp[2] 
-            || WIFIINITSTARTCMD == ucSendBuff_temp[2]
-            || WIFIINITENDCMD == ucSendBuff_temp[2]) 
-        {
-            wakeup_mcu_info_config();
-        }
+        esp_wakeup_mcu_info_config();
+        //wakeup_mcu_info();
 
         stop_power_save();
         uart_write_bytes(EX_UART_NUM, (const char*) ucSendBuff_temp, sizeof(ucSendBuff_temp));//uart_tx_chars
         uart_wait_tx_done(EX_UART_NUM, 100);
         start_power_save();
 
-        if(OnOffCMD == ucSendBuff_temp[2] 
-            || WIFIINITSTARTCMD == ucSendBuff_temp[2]
-            || WIFIINITENDCMD == ucSendBuff_temp[2]) // && 1 == ucSendBuff_temp[3]|| CChargingCMD == ucSendBuff_temp[2]
-        {
-            wait_for_mcu_info_config(MCU_WAJEUP_IO);
-        }
+        printf("ucSendBuff[2] : %d\n", ucSendBuff[2]);
+
+        mcu_wakeup_esp_io_intr_init();
 
         if (s_wifi_init_end_flag)
         {
-            app_rainmaker_update_dimmer_state(ucSendBuff_temp[2], ucSendBuff_temp[3]);
+            app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
         }
 
         ucSendFlag = 0;
@@ -142,14 +135,13 @@ Others:
 void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
 {
     ucSendBuff[2] = cmd;
-    
-    if (OnOffCMD == cmd)
-    {
-        ucSendBuff[3] = dat;
-    }
+
+    ucSendBuff[3] = Get_Bri_Status();
+        
     ucSendBuff[4] = dat;
     
     ucSendBuff[5] = ucSendBuff[0] + ucSendBuff[1] + ucSendBuff[2]  + ucSendBuff[3] + ucSendBuff[4];
+
     ucSendFlag = 1;
     
     if (0 == ucSendTaskHandle_Flag)
@@ -165,7 +157,7 @@ void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
 void uart_deal_with(uint8_t* str, uint8_t num)
 {
     uint8_t i;
-    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, UART_ACCEPT_END, Get_Bri_Status(), 0};
+    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, UART_ACCEPT_END, 0, 0, 0};
     
     for (i = 0; i < num - (LENGTH -1); ) 
     { 
@@ -174,21 +166,14 @@ void uart_deal_with(uint8_t* str, uint8_t num)
 
         if (ReceivedHead1 == str[i] && ReceivedHead2 == str[i+1])
         {
-            printf("str[i+2] = %x \tstr[i+3] = %x\tstr[i+3] = %x\n", str[i + 2], str[i + 2], str[i + 3]);
-            SendBuff[3] = str[i + 2];
-            SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];  
-
-            uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
-            uart_wait_tx_done(EX_UART_NUM, 100);
+            printf("str[i+2] = %x \tstr[i+3] = %x\tstr[i+4] = %x\n", str[i + 2], str[i + 3], str[i + 4]);
 
             switch(str[i + 2])
             {
                 case OnOffCMD:
-                    if (str[i+3] != Get_Bri_Status())
+                    if (str[i+4] != Get_Bri_Status())
                     {
-                        Set_Bri_Status(str[i+3]);
-
-                        ucRxTaskHandle_Flag = 0;
+                        Set_Bri_Status(str[i+4]);
 
                         if (s_wifi_init_end_flag)
                         {
@@ -199,17 +184,26 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     {
                         printf("Bri_Status same\n");
                     }
+                    SendBuff[3] = Get_Bri_Status();
+                    SendBuff[4] = str[i + 4];
+                    SendBuff[5] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3] + SendBuff[4];  
+
+                    uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
+                    uart_wait_tx_done(EX_UART_NUM, 100);
                     printf("Bri_Status %d\n", Get_Bri_Status());
                 break;
 
                 case BriNowCMD:
-                    if (str[i+3] != Get_Btight_Pct())
+                    if (str[i+3] != Get_Bri_Status())
                     {
-                        ucRxTaskHandle_Flag = 0;
-
-                        if (str[i+3] <= 100) 
+                        Set_Bri_Status(str[i+3]);
+                    }
+                    
+                    if (str[i+4] != Get_Btight_Pct())
+                    {
+                        if (str[i+4] <= 100) 
                         {
-                            Set_Btight_Pct(str[i+3]);
+                            Set_Btight_Pct(str[i+4]);
                                     
                             if (s_wifi_init_end_flag)
                             {
@@ -221,12 +215,25 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     {
                         printf("Btight_Pct same\n");
                     }
+                    SendBuff[3] = Get_Bri_Status();
+                    SendBuff[4] = str[i + 4];
+                    SendBuff[5] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3] + SendBuff[4];  
+
+                    uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
+                    uart_wait_tx_done(EX_UART_NUM, 100);
+                    printf("Bri_Status %d\n", Get_Bri_Status());
                     printf("\t\t\t\tBtight_Pct %d\n", Get_Btight_Pct());
                 break;
 
                 case WIFIRESETCMD:
-                    ucRxTaskHandle_Flag = 0;
+                    SendBuff[3] = Get_Bri_Status();
+                    SendBuff[4] = str[i + 4];
+                    SendBuff[5] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3] + SendBuff[4];  
 
+                    uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
+                    uart_wait_tx_done(EX_UART_NUM, 100);
+                    printf("Bri_Status %d\n", Get_Bri_Status());
+                    printf("\n\n\n\nRESET!!!\n\n\n");
                     esp_rmaker_factory_reset(0, REBOOT_DELAY);
                 break;
 
@@ -237,8 +244,6 @@ void uart_deal_with(uint8_t* str, uint8_t num)
             
         i++;
     } 
-
-    start_power_save();
 }
 
 /*-----------------------------------------------------------------------------
@@ -269,8 +274,6 @@ static void uart_event_task(void *pvParameters)
                     uart_read_bytes(EX_UART_NUM, dtmp, event.size, portMAX_DELAY);
                     ESP_LOGI(TAG, "[DATA EVT]: %s", dtmp);
                     uart_deal_with(dtmp, event.size);
-                    re_wkup_mcu_flag = 0;
-                    //uart_write_bytes(EX_UART_NUM, (const char*) dtmp, event.size);
                     break;
                 //Event of HW FIFO overflow detected
                 case UART_FIFO_OVF:
@@ -359,70 +362,79 @@ static void IRAM_ATTR wakeup_io_isr_handler(void* arg)
 
 static void wakeup_io_stop_power_timer_callback(void* arg)
 {
-    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, 0, 0, 0};
+    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, UART_SEND_ALLOW, 0, 1, 0};
 
     stop_power_save();
     printf("stop_power_save\n");
 
-    SendBuff[2] = UART_SEND_ALLOW;
-    SendBuff[3] = 1;
-    SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];
+    SendBuff[3] = Get_Bri_Status();
+    SendBuff[5] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3 + SendBuff[4]];
     
     uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
     uart_wait_tx_done(EX_UART_NUM, 100);
 
-    printf("SendBuff[2] = %d\n", SendBuff[2]);
+    printf("SendBuff[2] = %x\n", SendBuff[2]);
 }
 
 static void wakeup_io_start_power_timer_callback(void* arg)
 {    
-    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, 0, 0, 0};
-    SendBuff[2] = UART_ACCEPT_END;
-    SendBuff[3] = 1;
-    SendBuff[4] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3];
+    uint8_t SendBuff[LENGTH] = { SendHead1, SendHead2, UART_ACCEPT_END, 0, 1, 0};
+    SendBuff[3] = Get_Bri_Status();
+    SendBuff[5] = SendBuff[0] + SendBuff[1] + SendBuff[2]  + SendBuff[3 + SendBuff[4]];
     
     uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
     uart_wait_tx_done(EX_UART_NUM, 100);
 
     start_power_save();
     printf("start_power_save\n");
-    printf("SendBuff[2] = %d\n", SendBuff[2]);
+    printf("SendBuff[2] = %x\n", SendBuff[2]);
 }   
 
-void wakeup_mcu_info_config(void)
+void esp_wakeup_mcu_info_config(void)
 {        
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << MCU_WAJEUP_IO);
+    io_conf.pin_bit_mask = (1ULL << WAJEUP_MCU_IO);
     io_conf.pull_down_en = 1;
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
-    gpio_hold_dis(MCU_WAJEUP_IO);
-    gpio_set_level(MCU_WAJEUP_IO, 1);
-    gpio_hold_en(MCU_WAJEUP_IO);
+    gpio_hold_dis(WAJEUP_MCU_IO);
+    gpio_set_level(WAJEUP_MCU_IO, 1);
+    gpio_hold_en(WAJEUP_MCU_IO);
 
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(pdMS_TO_TICKS(1));
 
-    gpio_hold_dis(MCU_WAJEUP_IO);
-    gpio_set_level(MCU_WAJEUP_IO, 0);
+    gpio_hold_dis(WAJEUP_MCU_IO);
+    gpio_set_level(WAJEUP_MCU_IO, 0);
+    gpio_hold_en(WAJEUP_MCU_IO);
+    
+    vTaskDelay(pdMS_TO_TICKS(1));
+
+    gpio_hold_dis(WAJEUP_MCU_IO);
 
     printf("wakeup_mcu_info\n");
 }
 
 void wakeup_mcu_info(void)
 {    
-    gpio_hold_dis(MCU_WAJEUP_IO);
-    gpio_set_level(MCU_WAJEUP_IO, 1);
-    gpio_hold_en(MCU_WAJEUP_IO);
+    gpio_hold_dis(WAJEUP_MCU_IO);
+    gpio_set_level(WAJEUP_MCU_IO, 1);
+    gpio_hold_en(WAJEUP_MCU_IO);
 
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(pdMS_TO_TICKS(1));
 
-    gpio_hold_dis(MCU_WAJEUP_IO);
+    gpio_hold_dis(WAJEUP_MCU_IO);
+    gpio_set_level(WAJEUP_MCU_IO, 0);
+    gpio_hold_en(WAJEUP_MCU_IO);
+    
+    vTaskDelay(pdMS_TO_TICKS(1));
+
+    gpio_hold_dis(WAJEUP_MCU_IO);
 }
 
-esp_err_t wait_for_mcu_info_config(gpio_num_t gpio_num)
+esp_err_t mcu_wakeup_esp_io_config(gpio_num_t gpio_num)
 {
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_INTR_POSEDGE;
@@ -434,17 +446,17 @@ esp_err_t wait_for_mcu_info_config(gpio_num_t gpio_num)
     printf("wait_for_mcu_info_config\n");
 }
 
-esp_err_t wakeup_io_intr_init(void)
+esp_err_t mcu_wakeup_esp_io_intr_init(void)
 {
     esp_err_t ret = ESP_FAIL;
 
-    ret = wait_for_mcu_info_config(MCU_WAJEUP_IO);
+    ret = mcu_wakeup_esp_io_config(MCU_WAJEUP_IO);
 
     if(gpio_get_level(MCU_WAJEUP_IO) == 0){
         wakeup_io_intr_type = GPIO_INTR_POSEDGE;
     }
 
-    // ret = gpio_hold_en(MCU_WAJEUP_IO);
+     //ret = gpio_hold_en(MCU_WAJEUP_IO);
 
     ret = gpio_install_isr_service(0);
 
@@ -457,10 +469,20 @@ esp_err_t wakeup_io_intr_init(void)
     return ret;
 }
 
-void wifi_start_init(void)
+void wifi_start_init_uart(void)
 {
-    ucRxTaskHandle_Flag = 0;
     send_bri_ctrl_info(WIFIINITSTARTCMD, 1);
+
+    return;
+}
+
+extern esp_err_t esp_rmaker_reset_user_node_mapping(void);
+
+void wifi_init_end_uart(void)
+{
+    s_wifi_init_end_flag = 1;
+    send_bri_ctrl_info(WIFIINITENDCMD, 1);
+    //esp_rmaker_reset_user_node_mapping();
 
     return;
 }
@@ -515,7 +537,8 @@ void bri_ctrl_uart_init(void)
     };
     esp_timer_create(&wakeup_io_start_power_timer_args, &wakeup_io_start_timer);
 
-    wakeup_io_intr_init();
+    mcu_wakeup_esp_io_intr_init();
+    esp_wakeup_mcu_info_config();
 
     printf("uart init ok\n");
 }

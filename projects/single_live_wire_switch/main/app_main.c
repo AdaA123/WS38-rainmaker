@@ -37,8 +37,6 @@ static esp_pm_lock_handle_t s_pm_cpu_lock = NULL;
 
 static uint8_t lock_status = 0;
 
-__uint8_t s_wifi_init_end_flag = 0 ;
-
 void stop_power_save(void)
 {
     if (s_pm_cpu_lock != NULL && lock_status == 0)
@@ -135,6 +133,7 @@ void app_main()
 	app_pm_config();
 	app_driver_init();
     adc_cheak();
+    wifi_start_init_uart();
     /* Initialize Wi-Fi. Note that, this should be called before esp_rmaker_node_init()
      */
     app_wifi_init();
@@ -161,6 +160,4 @@ void app_main()
         vTaskDelay(5000/portTICK_PERIOD_MS);
         abort();
     }
-
-    s_wifi_init_end_flag  = 1;
 }
