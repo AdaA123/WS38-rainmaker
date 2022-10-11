@@ -93,8 +93,8 @@ void send_uart_info_task(void *arg)
             }
         }
 
-        esp_wakeup_mcu_info_config();
-        //wakeup_mcu_info();
+        //esp_wakeup_mcu_info_config();
+        wakeup_mcu_info();
 
         stop_power_save();
         uart_write_bytes(EX_UART_NUM, (const char*) ucSendBuff_temp, sizeof(ucSendBuff_temp));//uart_tx_chars
@@ -103,7 +103,7 @@ void send_uart_info_task(void *arg)
 
         printf("ucSendBuff[2] : %d\n", ucSendBuff[2]);
 
-        mcu_wakeup_esp_io_intr_init();//
+       // mcu_wakeup_esp_io_intr_init();
 
         if (s_wifi_init_end_flag)
         {
@@ -410,19 +410,19 @@ void esp_wakeup_mcu_info_config(void)
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
-    gpio_hold_dis(WAJEUP_MCU_IO);
-    gpio_set_level(WAJEUP_MCU_IO, 1);
-    gpio_hold_en(WAJEUP_MCU_IO);
+    // gpio_hold_dis(WAJEUP_MCU_IO);
+    // gpio_set_level(WAJEUP_MCU_IO, 1);
+    // gpio_hold_en(WAJEUP_MCU_IO);
 
-    vTaskDelay(pdMS_TO_TICKS(1));
+    // vTaskDelay(pdMS_TO_TICKS(1));
 
-    gpio_hold_dis(WAJEUP_MCU_IO);
-    gpio_set_level(WAJEUP_MCU_IO, 0);
-    gpio_hold_en(WAJEUP_MCU_IO);
+    // gpio_hold_dis(WAJEUP_MCU_IO);
+    // gpio_set_level(WAJEUP_MCU_IO, 0);
+    // gpio_hold_en(WAJEUP_MCU_IO);
     
-    vTaskDelay(pdMS_TO_TICKS(1));
+    // vTaskDelay(pdMS_TO_TICKS(1));
 
-    gpio_hold_dis(WAJEUP_MCU_IO);
+    // gpio_hold_dis(WAJEUP_MCU_IO);
 
     printf("wakeup_mcu_info\n");
 }
