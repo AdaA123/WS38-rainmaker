@@ -37,7 +37,7 @@ static const char *TAG = "uart_events";
 #define UART_GPIO_TX    GPIO_NUM_10
 #define UART_GPIO_RX    GPIO_NUM_7
 
-#define MCU_WAJEUP_IO   GPIO_NUM_6
+#define MCU_WAJEUP_IO   GPIO_NUM_5
 #define WAJEUP_MCU_IO   GPIO_NUM_6
 
 #define BUF_SIZE (1024)
@@ -62,6 +62,8 @@ static int8_t ucSendTaskHandle_Flag = 0;
 static int8_t ucRxTaskHandle_Flag = 0;
 
 void wakeup_mcu_info(void);
+void esp_wakeup_mcu_info_config(void);
+esp_err_t mcu_wakeup_esp_io_intr_init(void);
 
 void send_uart_info_task(void *arg)
 {
@@ -154,6 +156,8 @@ void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
     }
 }
 
+extern esp_err_t esp_rmaker_reset_user_node_mapping(void);
+
 void uart_deal_with(uint8_t* str, uint8_t num)
 {
     uint8_t i;
@@ -233,6 +237,12 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
                     uart_wait_tx_done(EX_UART_NUM, 100);
                     printf("Bri_Status %d\n", Get_Bri_Status());
+
+                    if(s_wifi_init_end_flag)
+                    {
+                        esp_rmaker_reset_user_node_mapping();
+                    }
+                    
                     printf("\n\n\n\nRESET!!!\n\n\n");
                     esp_rmaker_factory_reset(0, REBOOT_DELAY);
                 break;
@@ -476,13 +486,10 @@ void wifi_start_init_uart(void)
     return;
 }
 
-extern esp_err_t esp_rmaker_reset_user_node_mapping(void);
-
 void wifi_init_end_uart(void)
 {
     s_wifi_init_end_flag = 1;
     send_bri_ctrl_info(WIFIINITENDCMD, 1);
-    //esp_rmaker_reset_user_node_mapping();
 
     return;
 }

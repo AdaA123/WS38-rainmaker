@@ -247,6 +247,7 @@ int app_rainmaker_init(void)
     esp_rmaker_schedule_enable();
 
     app_rainmaker_user_node_enable();
+    esp_rmaker_node_init ();
     /* Enable Insights. Requires CONFIG_ESP_INSIGHTS_ENABLED=y */
     //app_insights_enable();
 
