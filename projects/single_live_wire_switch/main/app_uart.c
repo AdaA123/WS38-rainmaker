@@ -103,7 +103,7 @@ void send_uart_info_task(void *arg)
 
         printf("ucSendBuff[2] : %d\n", ucSendBuff[2]);
 
-        mcu_wakeup_esp_io_intr_init();
+        mcu_wakeup_esp_io_intr_init();//
 
         if (s_wifi_init_end_flag)
         {
@@ -440,8 +440,6 @@ void wakeup_mcu_info(void)
     gpio_hold_en(WAJEUP_MCU_IO);
     
     vTaskDelay(pdMS_TO_TICKS(1));
-
-    gpio_hold_dis(WAJEUP_MCU_IO);
 }
 
 esp_err_t mcu_wakeup_esp_io_config(gpio_num_t gpio_num)
