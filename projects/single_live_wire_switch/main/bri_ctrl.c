@@ -30,11 +30,17 @@ void Set_Bri_Status(uint16_t status)
 {
 	Bri_Status = status;
 
-    send_bri_ctrl_info(OnOffCMD, Bri_Status);
+   	send_bri_ctrl_info(OnOffCMD, Bri_Status);
 
 	return;
 }
 
+void Mcu_Set_Bri_Status(uint16_t status)
+{
+	Bri_Status = status;
+	
+	return;
+}
 /*-----------------------------------------------------------------------------
 Function: Get_Bri_Status()
 Description: 获取开关状态
@@ -82,6 +88,16 @@ void Set_Btight_Pct(unsigned int Pct)
     printf("Bri_Now_Pct = %d\n", Bri_Now_Pct);
 }
 
+void Mcu_Set_Btight_Pct(unsigned int Pct)
+{
+	if (Bri_Max_Pct < Pct || Bri_Min_Pct > Pct) {
+		return;	
+	}
+
+	Bri_Now_Pct = Pct;
+
+    printf("Bri_Now_Pct = %d\n", Bri_Now_Pct);
+}
 /*-----------------------------------------------------------------------------
 Function: Set_Btight_Min_Pct(unsigned int Pct)
 Description: 设置最小亮度

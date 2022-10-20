@@ -35,8 +35,6 @@ void Light_Init(void);
 void DIM_Ctrl(void);
 void Bti_Ctrl_Init(void);
 void ZCD_Adjust(void);
-void Set_Btight_Pct(unsigned int angle_val);
-unsigned int Get_Btight_Pct(void);
 uint8_t Is_bri_off(void);
 
 void Set_Btight_Min_Pct(unsigned int angle_val);
@@ -57,6 +55,11 @@ void esp_rmaker_update(uint8_t cmd_tyed, uint32_t dat);
 void sys_check();
 
 void Set_Bri_Status(uint16_t status);
+void Mcu_Set_Bri_Status(uint16_t status);
+
+void Set_Btight_Pct(unsigned int angle_val);
+void Mcu_Set_Btight_Pct(unsigned int Pct);
+unsigned int Get_Btight_Pct(void);
 
 /* Private defines -----------------------------------------------------------*/
 

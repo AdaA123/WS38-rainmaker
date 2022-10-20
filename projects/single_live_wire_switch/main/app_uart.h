@@ -30,6 +30,8 @@ void wifi_start_init_uart(void);
 
 void send_bri_ctrl_info(unsigned char cmd, unsigned char dat); 
 
+uint8_t is_uart_rx_ing(void);
+
 void wakeup_mcu_info(void);
 #ifdef __cplusplus
 }

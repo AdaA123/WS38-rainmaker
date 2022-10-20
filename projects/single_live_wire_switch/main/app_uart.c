@@ -37,7 +37,7 @@ static const char *TAG = "uart_events";
 #define UART_GPIO_TX    GPIO_NUM_10
 #define UART_GPIO_RX    GPIO_NUM_7
 
-#define MCU_WAJEUP_IO   GPIO_NUM_5
+#define MCU_WAJEUP_IO   GPIO_NUM_6
 #define WAJEUP_MCU_IO   GPIO_NUM_6
 
 #define BUF_SIZE (1024)
@@ -58,12 +58,17 @@ static uint8_t ucSendFlag = 0;
 
  __uint8_t s_wifi_init_end_flag = 0;
 
-static int8_t ucSendTaskHandle_Flag = 0;
-static int8_t ucRxTaskHandle_Flag = 0;
+static uint8_t ucSendTaskHandle_Flag = 0;
+static uint8_t ucRxTaskHandle_Flag = 0;
 
 void wakeup_mcu_info(void);
 void esp_wakeup_mcu_info_config(void);
 esp_err_t mcu_wakeup_esp_io_intr_init(void);
+
+uint8_t is_uart_rx_ing(void)
+{
+    return ucRxTaskHandle_Flag;
+}
 
 void send_uart_info_task(void *arg)
 {
@@ -104,11 +109,6 @@ void send_uart_info_task(void *arg)
         printf("ucSendBuff[2] : %d\n", ucSendBuff[2]);
 
         mcu_wakeup_esp_io_intr_init();//
-
-        if (s_wifi_init_end_flag)
-        {
-            app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
-        }
 
         ucSendFlag = 0;
 
@@ -156,6 +156,29 @@ void send_bri_ctrl_info(unsigned char cmd, unsigned char dat) //
     }
 }
 
+static uint8_t is_rx_uart_task_ei = 0;
+void uart_rx_info_task(void *arg)
+{
+    uint16_t bri_status = Get_Bri_Status();
+    uint16_t bri_pct = Get_Btight_Pct();
+
+    do{
+        bri_status = Get_Bri_Status();
+        bri_pct = Get_Btight_Pct();
+        
+        vTaskDelay(pdMS_TO_TICKS(175));
+    }while(bri_status != Get_Bri_Status() || bri_pct != Get_Btight_Pct());
+
+    if (s_wifi_init_end_flag)
+    {
+        app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
+    }
+
+    is_rx_uart_task_ei = 0;
+
+    vTaskDelete(NULL);
+}
+
 extern esp_err_t esp_rmaker_reset_user_node_mapping(void);
 
 void uart_deal_with(uint8_t* str, uint8_t num)
@@ -177,12 +200,7 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                 case OnOffCMD:
                     if (str[i+4] != Get_Bri_Status())
                     {
-                        Set_Bri_Status(str[i+4]);
-
-                        if (s_wifi_init_end_flag)
-                        {
-                            app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
-                        }
+                        Mcu_Set_Bri_Status(str[i+4]);
                     }
                     else
                     {
@@ -195,24 +213,24 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
                     uart_wait_tx_done(EX_UART_NUM, 100);
                     printf("Bri_Status %d\n", Get_Bri_Status());
+
+                    // if (s_wifi_init_end_flag)
+                    // {
+                    //     app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
+                    // }
                 break;
 
                 case BriNowCMD:
                     if (str[i+3] != Get_Bri_Status())
                     {
-                        Set_Bri_Status(str[i+3]);
+                        Mcu_Set_Bri_Status(str[i+3]);
                     }
                     
                     if (str[i+4] != Get_Btight_Pct())
                     {
                         if (str[i+4] <= 100) 
                         {
-                            Set_Btight_Pct(str[i+4]);
-                                    
-                            if (s_wifi_init_end_flag)
-                            {
-                                app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
-                            }
+                            Mcu_Set_Btight_Pct(str[i+4]);
                         }
                     }
                     else
@@ -226,7 +244,12 @@ void uart_deal_with(uint8_t* str, uint8_t num)
                     uart_write_bytes(EX_UART_NUM, (const char*) SendBuff, sizeof(SendBuff));//uart_tx_chars
                     uart_wait_tx_done(EX_UART_NUM, 100);
                     printf("Bri_Status %d\n", Get_Bri_Status());
-                    printf("\t\t\t\tBtight_Pct %d\n", Get_Btight_Pct());
+                    printf("\t\t\t\tBtight_Pct %d\n", Get_Btight_Pct());              
+
+                    // if (s_wifi_init_end_flag)
+                    // {
+                    //     app_rainmaker_update_dimmer_state(Get_Bri_Status(), Get_Btight_Pct());
+                    // }
                 break;
 
                 case WIFIRESETCMD:
@@ -254,6 +277,16 @@ void uart_deal_with(uint8_t* str, uint8_t num)
             
         i++;
     } 
+
+    if(0 == is_rx_uart_task_ei)
+    {
+        if (xTaskCreate(uart_rx_info_task, "uart_rx_info_task", 3*1024, NULL, 12, NULL) != pdTRUE) 
+        {
+                ESP_LOGE(TAG, "Error create websocket task");
+                return;
+        }
+        is_rx_uart_task_ei = 1;
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -357,13 +390,13 @@ static void IRAM_ATTR wakeup_io_isr_handler(void* arg)
         gpio_set_intr_type(MCU_WAJEUP_IO, GPIO_INTR_HIGH_LEVEL);
         ucRxTaskHandle_Flag = 0;
         esp_timer_stop(wakeup_io_start_timer);
-        esp_timer_start_once(wakeup_io_start_timer, 1 * 1000);
+        esp_timer_start_once(wakeup_io_start_timer, 10 * 1000);
     }else if (wakeup_io_intr_type == GPIO_INTR_HIGH_LEVEL) {
         wakeup_io_intr_type = GPIO_INTR_LOW_LEVEL;
         gpio_set_intr_type(MCU_WAJEUP_IO, GPIO_INTR_LOW_LEVEL);
         ucRxTaskHandle_Flag = 1;
         esp_timer_stop(wakeup_io_stop_timer);
-        esp_timer_start_once(wakeup_io_stop_timer, 1 * 1000);
+        esp_timer_start_once(wakeup_io_stop_timer, 10 * 1000);
     }else {
         wakeup_io_intr_type = GPIO_INTR_HIGH_LEVEL;
         gpio_set_intr_type(MCU_WAJEUP_IO, GPIO_INTR_HIGH_LEVEL);
@@ -406,7 +439,7 @@ void esp_wakeup_mcu_info_config(void)
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
     io_conf.pin_bit_mask = (1ULL << WAJEUP_MCU_IO);
-    io_conf.pull_down_en = 1;
+    io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
@@ -543,7 +576,7 @@ void bri_ctrl_uart_init(void)
     esp_timer_create(&wakeup_io_start_power_timer_args, &wakeup_io_start_timer);
 
     mcu_wakeup_esp_io_intr_init();
-    esp_wakeup_mcu_info_config();
+    //esp_wakeup_mcu_info_config();
 
     printf("uart init ok\n");
 }
